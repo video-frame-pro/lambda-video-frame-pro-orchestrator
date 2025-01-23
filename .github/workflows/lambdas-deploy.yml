@@ -1,0 +1,99 @@
+name: Lambda Deploy Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  terraform-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout do repositório
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Carregar variáveis compartilhadas
+      - name: Load shared variables
+        id: vars
+        uses: jeasonstudio/get-yaml-values-action@v1.1
+        with:
+          file: .github/workflows/variables-lambda.yml
+
+      # Configurar o Terraform
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      # Inicializar o Terraform
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ steps.vars.outputs.terraform.directory }}
+
+      # Validar o Terraform
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ steps.vars.outputs.terraform.directory }}
+
+  package-lambdas:
+    runs-on: ubuntu-latest
+    needs: terraform-validate  # Só empacota após a validação do Terraform
+
+    steps:
+      # Checkout do repositório
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Carregar variáveis compartilhadas
+      - name: Load shared variables
+        id: vars
+        uses: jeasonstudio/get-yaml-values-action@v1.1
+        with:
+          file: .github/workflows/variables-lambda.yml
+
+      # Empacotar Lambdas
+      - name: Package Lambdas
+        run: |
+          for lambda in "${{ fromJson(steps.vars.outputs.lambda.lambdas) }}"; do
+            echo "Preparing Lambda: $lambda.name"
+            if [ -f "$lambda.source/requirements.txt" ]; then
+              python3 -m venv venv
+              source venv/bin/activate
+              pip install -r "$lambda.source/requirements.txt"
+              deactivate
+            fi
+            mkdir -p "lambda/$lambda.name"
+            cp -r "$lambda.source/"* "lambda/$lambda.name/"
+            cd "lambda/$lambda.name"
+            zip -r "$lambda.zip" .
+            cd ../../
+          done
+
+  terraform-deploy:
+    runs-on: ubuntu-latest
+    needs: package-lambdas  # Só faz o deploy após o empacotamento das Lambdas
+
+    steps:
+      # Checkout do repositório
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Carregar variáveis compartilhadas
+      - name: Load shared variables
+        id: vars
+        uses: jeasonstudio/get-yaml-values-action@v1.1
+        with:
+          file: .github/workflows/variables-lambda.yml
+
+      # Configurar credenciais da AWS
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ steps.vars.outputs.github_env.aws.access_key }}
+          aws-secret-access-key: ${{ steps.vars.outputs.github_env.aws.secret_key }}
+          aws-region: ${{ steps.vars.outputs.github_env.aws.region }}
+
+      # Aplicar Terraform
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ${{ steps.vars.outputs.terraform.directory }}
