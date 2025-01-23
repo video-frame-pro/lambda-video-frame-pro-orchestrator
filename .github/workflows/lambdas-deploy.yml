@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'infra/**'
+      - '.github/config/variables-lambda.yml'
+      - '.github/workflows/lambdas-deploy.yml'
 
 jobs:
   load-variables:
@@ -24,13 +30,12 @@ jobs:
       - name: Load variables from YAML with yq
         id: load-vars
         run: |
-          # Carregar variáveis do YAML
-          echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=lambdas::$(yq -o=json '.lambda.lambdas' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=aws-region::$(yq '.github_env.aws.region' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=aws-access-key::$(yq '.github_env.aws.access_key' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=aws-secret-key::$(yq '.github_env.aws.secret_key' .github/workflows/variables-lambda.yml)"
+          echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
+          echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
+          echo "::set-output name=lambdas::$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)"
+          echo "::set-output name=aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
+          echo "::set-output name=aws-access-key::$(yq '.github_env.aws.access_key' .github/config/variables-lambda.yml)"
+          echo "::set-output name=aws-secret-key::$(yq '.github_env.aws.secret_key' .github/config/variables-lambda.yml)"
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -53,7 +58,7 @@ jobs:
 
   package-lambdas:
     runs-on: ubuntu-latest
-    needs: terraform-validate  # Só empacota após a validação do Terraform
+    needs: terraform-validate
 
     steps:
       - name: Checkout repository
@@ -82,7 +87,7 @@ jobs:
 
   terraform-deploy:
     runs-on: ubuntu-latest
-    needs: package-lambdas  # Só faz o deploy após o empacotamento das Lambdas
+    needs: package-lambdas
 
     steps:
       - name: Checkout repository

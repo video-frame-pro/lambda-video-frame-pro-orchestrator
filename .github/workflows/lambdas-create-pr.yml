@@ -4,6 +4,13 @@ on:
   pull_request:
     branches:
       - develop
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'infra/**'
+      - '.github/config/variables-lambda.yml'
+      - '.github/workflows/lambdas-create-pr.yml'
+      - '.github/workflows/lambdas-deploy.yml'
 
 jobs:
   load-variables:
@@ -12,9 +19,14 @@ jobs:
     outputs:
       terraform-directory: ${{ steps.load-vars.outputs.terraform-directory }}
       lambda-runtime: ${{ steps.load-vars.outputs.lambda-runtime }}
+      lambdas: ${{ steps.load-vars.outputs.lambdas }}
       test-run-toggle: ${{ steps.load-vars.outputs.test-run-toggle }}
-      test-source: ${{ steps.load-vars.outputs.test-source }}
+      test-lambda-source: ${{ steps.load-vars.outputs.test-lambda-source }}
       coverage-fail-under: ${{ steps.load-vars.outputs.coverage-fail-under }}
+      aws-region: ${{ steps.load-vars.outputs.aws-region }}
+      aws-access-key: ${{ steps.load-vars.outputs.aws-access-key }}
+      aws-secret-key: ${{ steps.load-vars.outputs.aws-secret-key }}
+      github-pat: ${{ steps.load-vars.outputs.github-pat }}
 
     steps:
       - name: Checkout repository
@@ -23,13 +35,16 @@ jobs:
       - name: Load variables from YAML with yq
         id: load-vars
         run: |
-          # Carregar variáveis do YAML
-          echo "Loading variables from YAML"
-          echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=test-run-toggle::$(yq '.test.run-toogle' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=test-source::$(yq '.test.lambdas[0].source' .github/workflows/variables-lambda.yml)"
-          echo "::set-output name=coverage-fail-under::$(yq '.test.coverage.fail_under' .github/workflows/variables-lambda.yml)"
+          echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
+          echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
+          echo "::set-output name=lambdas::$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)"
+          echo "::set-output name=test-run-toggle::$(yq '.test.run-toogle' .github/config/variables-lambda.yml)"
+          echo "::set-output name=test-lambda-source::$(yq '.test.lambdas[0].source' .github/config/variables-lambda.yml)"
+          echo "::set-output name=coverage-fail-under::$(yq '.test.coverage.fail_under' .github/config/variables-lambda.yml)"
+          echo "::set-output name=aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
+          echo "::set-output name=aws-access-key::$(yq '.github_env.aws.access_key' .github/config/variables-lambda.yml)"
+          echo "::set-output name=aws-secret-key::$(yq '.github_env.aws.secret_key' .github/config/variables-lambda.yml)"
+          echo "::set-output name=github-pat::$(yq '.github_env.github_token.pat' .github/config/variables-lambda.yml)"
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -66,12 +81,12 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install -r ./${{ needs.load-variables.outputs.test-source }}/requirements.txt
+          pip install -r ${{ needs.load-variables.outputs.test-lambda-source }}/requirements.txt
           pip install coverage coverage-badge
 
       - name: Run tests with coverage
         run: |
-          coverage run -m unittest discover -s ${{ needs.load-variables.outputs.test-source }}
+          coverage run -m unittest discover -s ${{ needs.load-variables.outputs.test-lambda-source }}
           coverage report -m --fail-under=${{ needs.load-variables.outputs.coverage-fail-under }}
           coverage html
           coverage-badge -o coverage.svg -f
@@ -117,12 +132,12 @@ jobs:
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
         env:
-          token: ${{ secrets.PAT }}
+          token: ${{ needs.load-variables.outputs.github-pat }}
 
       - name: Create or Update Pull Request to Main
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.PAT }}
+          github-token: ${{ needs.load-variables.outputs.github-pat }}
           script: |
             const { data: existingPullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
