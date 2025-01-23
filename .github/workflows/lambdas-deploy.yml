@@ -17,9 +17,9 @@ jobs:
       # Carregar variáveis compartilhadas
       - name: Load shared variables
         id: vars
-        uses: jeasonstudio/get-yaml-values-action@v1.1
+        uses: mrlocofy/read-yaml-action@v1.1
         with:
-          file: .github/workflows/variables-lambda.yml
+          yamlFile: .github/workflows/variables-lambda.yml
 
       # Configurar o Terraform
       - name: Set up Terraform
@@ -47,9 +47,9 @@ jobs:
       # Carregar variáveis compartilhadas
       - name: Load shared variables
         id: vars
-        uses: jeasonstudio/get-yaml-values-action@v1.1
+        uses: mrlocofy/read-yaml-action@v1.1
         with:
-          file: .github/workflows/variables-lambda.yml
+          yamlFile: .github/workflows/variables-lambda.yml
 
       # Empacotar Lambdas
       - name: Package Lambdas
@@ -81,9 +81,9 @@ jobs:
       # Carregar variáveis compartilhadas
       - name: Load shared variables
         id: vars
-        uses: jeasonstudio/get-yaml-values-action@v1.1
+        uses: mrlocofy/read-yaml-action@v1.1
         with:
-          file: .github/workflows/variables-lambda.yml
+          yamlFile: .github/workflows/variables-lambda.yml
 
       # Configurar credenciais da AWS
       - name: Configure AWS credentials

@@ -17,9 +17,9 @@ jobs:
       # Carregar variáveis compartilhadas
       - name: Load shared variables
         id: vars
-        uses: jeasonstudio/get-yaml-values-action@v1.1
+        uses: mrlocofy/read-yaml-action@v1.1
         with:
-          file: .github/workflows/variables-lambda.yml
+          yamlFile: .github/workflows/variables-lambda.yml
 
       # Configurar o Terraform
       - name: Set up Terraform
@@ -38,7 +38,7 @@ jobs:
   run-tests:
     runs-on: ubuntu-latest
     needs: terraform-validate
-    if: ${{ fromJson(needs.terraform-validate.outputs.test).run-toogle }} # Corrigido
+    if: ${{ fromJson(steps.vars.outputs.test.run-toogle) == true }}
 
     steps:
       # Checkout do repositório
@@ -49,19 +49,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ fromJson(needs.terraform-validate.outputs.lambda.runtime) }}
+          python-version: ${{ steps.vars.outputs.lambda.runtime }}
 
       # Instalar dependências de teste
       - name: Install test dependencies
         run: |
-          pip install -r ${{ fromJson(needs.terraform-validate.outputs.test.lambdas)[0].source }}/requirements.txt
+          pip install -r ${{ fromJson(steps.vars.outputs.test.lambdas)[0].source }}/requirements.txt
           pip install coverage coverage-badge
 
       # Executar testes com cobertura
       - name: Run tests with coverage
         run: |
-          coverage run -m unittest discover -s ${{ fromJson(needs.terraform-validate.outputs.test.lambdas)[0].source }}
-          coverage report -m --fail-under=${{ fromJson(needs.terraform-validate.outputs.test.coverage).fail_under }}
+          coverage run -m unittest discover -s ${{ fromJson(steps.vars.outputs.test.lambdas)[0].source }}
+          coverage report -m --fail-under=${{ steps.vars.outputs.test.coverage.fail_under }}
           coverage html
           coverage-badge -o coverage.svg -f
 
@@ -112,13 +112,13 @@ jobs:
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
         env:
-          token: ${{ fromJson(needs.terraform-validate.outputs.github_token.pat) }}
+          token: ${{ steps.vars.outputs.github_env.github_token.pat }}
 
       # Criar ou atualizar Pull Request para main
       - name: Create or Update Pull Request to Main
         uses: actions/github-script@v6
         with:
-          github-token: ${{ fromJson(needs.terraform-validate.outputs.github_token.pat) }}
+          github-token: ${{ steps.vars.outputs.github_env.github_token.pat }}
           script: |
             const { data: existingPullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
