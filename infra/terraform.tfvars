@@ -8,6 +8,7 @@ aws_region = "us-east-1" # Região AWS onde os recursos serão provisionados
 lambda_name     = "orchestrator" # Nome da função Lambda principal
 lambda_handler  = "src.orchestrator.orchestrator.lambda_handler" # Handler da função Lambda principal
 lambda_zip_path = "../src/orchestrator/orchestrator.zip" # Caminho para o ZIP da função Lambda
+lambda_runtime  = "python3.12" # Runtime da função Lambda principal
 
 ######### DYNAMO INFOS #################################################
 dynamo_table_name = "video_metadata" # Nome da tabela DynamoDB para armazenar informações

@@ -1,3 +1,4 @@
+######### STEP FUNCTION ################################################
 # Step Function para processar o fluxo do vídeo
 resource "aws_sfn_state_machine" "step_function" {
   name     = "${var.prefix_name}-${var.step_function_name}"
