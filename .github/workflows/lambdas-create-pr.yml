@@ -9,6 +9,13 @@ jobs:
   load-variables:
     runs-on: ubuntu-latest
 
+    outputs:
+      terraform-directory: ${{ steps.load-vars.outputs.terraform-directory }}
+      lambda-runtime: ${{ steps.load-vars.outputs.lambda-runtime }}
+      test-run-toggle: ${{ steps.load-vars.outputs.test-run-toggle }}
+      test-source: ${{ steps.load-vars.outputs.test-source }}
+      coverage-fail-under: ${{ steps.load-vars.outputs.coverage-fail-under }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -17,16 +24,12 @@ jobs:
         id: load-vars
         run: |
           # Carregar variáveis do YAML
-          export TERRAFORM_DIRECTORY=$(yq '.terraform.directory' .github/workflows/variables-lambda.yml)
-          export LAMBDA_RUNTIME=$(yq '.lambda.runtime' .github/workflows/variables-lambda.yml)
-          export TEST_RUN_TOGGLE=$(yq '.test.run-toogle' .github/workflows/variables-lambda.yml)
-          export TEST_SOURCE=$(yq '.test.lambdas[0].source' .github/workflows/variables-lambda.yml)
-          export COVERAGE_FAIL_UNDER=$(yq '.test.coverage.fail_under' .github/workflows/variables-lambda.yml)
-          echo "TERRAFORM_DIRECTORY=$TERRAFORM_DIRECTORY"
-          echo "LAMBDA_RUNTIME=$LAMBDA_RUNTIME"
-          echo "TEST_RUN_TOGGLE=$TEST_RUN_TOGGLE"
-          echo "TEST_SOURCE=$TEST_SOURCE"
-          echo "COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER"
+          echo "Loading variables from YAML"
+          echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/workflows/variables-lambda.yml)"
+          echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/workflows/variables-lambda.yml)"
+          echo "::set-output name=test-run-toggle::$(yq '.test.run-toogle' .github/workflows/variables-lambda.yml)"
+          echo "::set-output name=test-source::$(yq '.test.lambdas[0].source' .github/workflows/variables-lambda.yml)"
+          echo "::set-output name=coverage-fail-under::$(yq '.test.coverage.fail_under' .github/workflows/variables-lambda.yml)"
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -41,16 +44,16 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
 
   run-tests:
     runs-on: ubuntu-latest
     needs: terraform-validate
-    if: ${{ env.TEST_RUN_TOGGLE == 'true' }}
+    if: ${{ needs.load-variables.outputs.test-run-toggle == 'true' }}
 
     steps:
       - name: Checkout repository
@@ -59,17 +62,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.LAMBDA_RUNTIME }}
+          python-version: ${{ needs.load-variables.outputs.lambda-runtime }}
 
       - name: Install test dependencies
         run: |
-          pip install -r ${{ env.TEST_SOURCE }}/requirements.txt
+          pip install -r ${{ needs.load-variables.outputs.test-source }}/requirements.txt
           pip install coverage coverage-badge
 
       - name: Run tests with coverage
         run: |
-          coverage run -m unittest discover -s ${{ env.TEST_SOURCE }}
-          coverage report -m --fail-under=${{ env.COVERAGE_FAIL_UNDER }}
+          coverage run -m unittest discover -s ${{ needs.load-variables.outputs.test-source }}
+          coverage report -m --fail-under=${{ needs.load-variables.outputs.coverage-fail-under }}
           coverage html
           coverage-badge -o coverage.svg -f
 
