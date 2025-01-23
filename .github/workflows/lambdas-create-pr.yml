@@ -37,8 +37,8 @@ jobs:
 
   run-tests:
     runs-on: ubuntu-latest
-    needs: terraform-validate  # Executa após validação do Terraform
-    if: ${{ fromJson(steps.vars.outputs.test.run-toogle) }} == true # Executa apenas se os testes estiverem habilitados
+    needs: terraform-validate
+    if: ${{ fromJson(needs.terraform-validate.outputs.test).run-toogle }} # Corrigido
 
     steps:
       # Checkout do repositório
@@ -49,19 +49,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ steps.vars.outputs.lambda.runtime }}
+          python-version: ${{ fromJson(needs.terraform-validate.outputs.lambda.runtime) }}
 
       # Instalar dependências de teste
       - name: Install test dependencies
         run: |
-          pip install -r ${{ fromJson(steps.vars.outputs.test.lambdas)[0].source }}/requirements.txt
+          pip install -r ${{ fromJson(needs.terraform-validate.outputs.test.lambdas)[0].source }}/requirements.txt
           pip install coverage coverage-badge
 
       # Executar testes com cobertura
       - name: Run tests with coverage
         run: |
-          coverage run -m unittest discover -s ${{ fromJson(steps.vars.outputs.test.lambdas)[0].source }}
-          coverage report -m --fail-under=${{ steps.vars.outputs.test.coverage.fail_under }}
+          coverage run -m unittest discover -s ${{ fromJson(needs.terraform-validate.outputs.test.lambdas)[0].source }}
+          coverage report -m --fail-under=${{ fromJson(needs.terraform-validate.outputs.test.coverage).fail_under }}
           coverage html
           coverage-badge -o coverage.svg -f
 
@@ -88,7 +88,7 @@ jobs:
 
   sync-develop-to-main:
     runs-on: ubuntu-latest
-    needs: [terraform-validate, run-tests]  # Dependendo da flag, 'run-tests' pode ser ignorado
+    needs: [terraform-validate, run-tests]
     if: success()
 
     steps:
@@ -112,13 +112,13 @@ jobs:
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
         env:
-          token: ${{ steps.vars.outputs.github_token.pat }}
+          token: ${{ fromJson(needs.terraform-validate.outputs.github_token.pat) }}
 
       # Criar ou atualizar Pull Request para main
       - name: Create or Update Pull Request to Main
         uses: actions/github-script@v6
         with:
-          github-token: ${{ steps.vars.outputs.github_token.pat }}
+          github-token: ${{ fromJson(needs.terraform-validate.outputs.github_token.pat) }}
           script: |
             const { data: existingPullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
