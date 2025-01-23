@@ -95,6 +95,10 @@ jobs:
             fi
           done
 
+      - name: Ensure Coverage is Installed
+        run: |
+          pip install coverage coverage-badge
+
       - name: Run All Tests and Generate Coverage Report
         run: |
           # Executar todos os testes de uma vez
