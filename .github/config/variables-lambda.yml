@@ -9,7 +9,7 @@ github_env:
     pat: ${{ secrets.PAT }} # Personal Access Token para sincronização de branches
 
 terraform:
-  directory: "./infra" # Diretório onde o Terraform está localizado
+  directory: "./infra" # Diretório onde o Terraform está localizado.
 
 lambda:
   runtime: "python3.12" # Runtime padrão para a Lambda
