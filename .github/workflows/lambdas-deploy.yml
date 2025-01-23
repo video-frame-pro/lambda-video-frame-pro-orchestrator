@@ -9,30 +9,23 @@ jobs:
   load-variables:
     runs-on: ubuntu-latest
 
-    outputs:
-      terraform-directory: ${{ steps.load-vars.outputs.terraform-directory }}
-      lambda-runtime: ${{ steps.load-vars.outputs.lambda-runtime }}
-      lambdas: ${{ steps.load-vars.outputs.lambdas }}
-      aws-region: ${{ steps.load-vars.outputs.aws-region }}
-      aws-access-key: ${{ steps.load-vars.outputs.aws-access-key }}
-      aws-secret-key: ${{ steps.load-vars.outputs.aws-secret-key }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Load variables from YAML
+      - name: Load variables from YAML with yq
         id: load-vars
         run: |
-          import yaml
-          with open('.github/workflows/variables-lambda.yml', 'r') as file:
-              config = yaml.safe_load(file)
-          print(f"::set-output name=terraform-directory::{config['terraform']['directory']}")
-          print(f"::set-output name=lambda-runtime::{config['lambda']['runtime']}")
-          print(f"::set-output name=lambdas::{config['lambda']['lambdas']}")
-          print(f"::set-output name=aws-region::{config['github_env']['aws']['region']}")
-          print(f"::set-output name=aws-access-key::{config['github_env']['aws']['access_key']}")
-          print(f"::set-output name=aws-secret-key::{config['github_env']['aws']['secret_key']}")
+          # Carregar variáveis do YAML
+          export TERRAFORM_DIRECTORY=$(yq '.terraform.directory' .github/workflows/variables-lambda.yml)
+          export LAMBDA_RUNTIME=$(yq '.lambda.runtime' .github/workflows/variables-lambda.yml)
+          export LAMBDAS=$(yq -o=json '.lambda.lambdas' .github/workflows/variables-lambda.yml)
+          export AWS_REGION=$(yq '.github_env.aws.region' .github/workflows/variables-lambda.yml)
+          export AWS_ACCESS_KEY=$(yq '.github_env.aws.access_key' .github/workflows/variables-lambda.yml)
+          export AWS_SECRET_KEY=$(yq '.github_env.aws.secret_key' .github/workflows/variables-lambda.yml)
+          echo "TERRAFORM_DIRECTORY=$TERRAFORM_DIRECTORY"
+          echo "LAMBDA_RUNTIME=$LAMBDA_RUNTIME"
+          echo "LAMBDAS=$LAMBDAS"
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -47,11 +40,11 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
 
   package-lambdas:
     runs-on: ubuntu-latest
@@ -63,19 +56,24 @@ jobs:
 
       - name: Package Lambdas
         run: |
-          import os, subprocess, json
-          lambdas = json.loads('${{ needs.load-variables.outputs.lambdas }}')
-          for lambda_def in lambdas:
-              name = lambda_def['name']
-              source = lambda_def['source']
-              zip_path = lambda_def['zip']
-              print(f"Packaging Lambda: {name}")
-              if os.path.exists(f"{source}/requirements.txt"):
-                  subprocess.run(['python3', '-m', 'venv', 'venv'], check=True)
-                  subprocess.run(['venv/bin/pip', 'install', '-r', f"{source}/requirements.txt"], check=True)
-              os.makedirs(os.path.dirname(zip_path), exist_ok=True)
-              subprocess.run(['cp', '-r', f"{source}/.", os.path.dirname(zip_path)], check=True)
-              subprocess.run(['zip', '-r', zip_path, '.'], cwd=os.path.dirname(zip_path), check=True)
+          lambdas=$(echo '${{ env.LAMBDAS }}' | jq -c '.[]')
+          for lambda in $lambdas; do
+            name=$(echo $lambda | jq -r '.name')
+            source=$(echo $lambda | jq -r '.source')
+            zip=$(echo $lambda | jq -r '.zip')
+            echo "Packaging Lambda: $name"
+            if [ -f "$source/requirements.txt" ]; then
+              python3 -m venv venv
+              source venv/bin/activate
+              pip install -r "$source/requirements.txt"
+              deactivate
+            fi
+            mkdir -p "$(dirname $zip)"
+            cp -r "$source/"* "$(dirname $zip)/"
+            cd "$(dirname $zip)"
+            zip -r "$(basename $zip)" .
+            cd ../../
+          done
 
   terraform-deploy:
     runs-on: ubuntu-latest
@@ -88,10 +86,10 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ needs.load-variables.outputs.aws-access-key }}
-          aws-secret-access-key: ${{ needs.load-variables.outputs.aws-secret-key }}
-          aws-region: ${{ needs.load-variables.outputs.aws-region }}
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
-        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
