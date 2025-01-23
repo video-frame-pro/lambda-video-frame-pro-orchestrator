@@ -83,32 +83,22 @@ jobs:
         run: |
           test_lambdas=$(echo '${{ needs.load-variables.outputs.test-lambdas }}' | jq -c '.[]')
           for test_lambda in $test_lambdas; do
-            name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
-            echo "Installing dependencies for: $name"
-
-            # Instalar dependências
+            echo "Installing dependencies for: $source"
             if [ -f "$source/requirements.txt" ]; then
               pip install -r "$source/requirements.txt"
             else
-              echo "No requirements.txt found for: $name"
+              echo "No requirements.txt found in $source"
             fi
           done
 
-      - name: Ensure Coverage is Installed
+      - name: Debug: List All Test Files
         run: |
-          pip install coverage coverage-badge
+          find tests -name "*.py"
 
       - name: Run All Tests and Generate Coverage Report
         run: |
-          # Executar todos os testes de uma vez
           coverage run -m unittest discover -s tests
-          coverage report -m
-          coverage html
-          coverage-badge -o coverage.svg -f
-
-      - name: Generate Coverage Report
-        run: |
           coverage report -m --fail-under=${{ needs.load-variables.outputs.coverage-fail-under }}
           coverage html
           coverage-badge -o coverage.svg -f
@@ -130,63 +120,3 @@ jobs:
         with:
           name: coverage-badge
           path: tests/reports/coverage.svg
-
-  sync-develop-to-main:
-    runs-on: ubuntu-latest
-    needs: [terraform-validate, run-tests]
-    if: success()
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Sync develop to main
-        run: |
-          git fetch origin
-          git checkout develop
-          git pull origin develop
-          git fetch origin ${{ github.event.pull_request.head.ref }}:${{ github.event.pull_request.head.ref }}
-
-      - name: Merge PR to Develop
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git merge --no-ff ${{ github.event.pull_request.head.ref }}
-          git push origin develop
-        env:
-          token: ${{ needs.load-variables.outputs.github-pat }}
-
-      - name: Create or Update Pull Request to Main
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ needs.load-variables.outputs.github-pat }}
-          script: |
-            const { data: existingPullRequests } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: 'develop',
-              base: 'main',
-              state: 'open'
-            });
-
-            if (existingPullRequests.length > 0) {
-              const pullRequest = existingPullRequests[0];
-              await github.rest.pulls.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pullRequest.number,
-                title: 'Sync develop to main',
-                body: 'This is an automated PR to sync changes from develop to main.'
-              });
-              console.log(`Updated pull request: ${pullRequest.html_url}`);
-            } else {
-              const { data: pullRequest } = await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: 'Sync develop to main',
-                head: 'develop',
-                base: 'main',
-                body: 'This is an automated PR to sync changes from develop to main.',
-                draft: false
-              });
-              console.log(`Created pull request: ${pullRequest.html_url}`);

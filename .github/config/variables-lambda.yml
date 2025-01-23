@@ -21,7 +21,7 @@ lambda:
 test:
   run-toogle: true # Executar testes?
   lambdas:
-    - name: "orchestratorTest" # Nome da Lambda principal
+    - name: "orchestrator_test" # Nome da Lambda principal
       source: "./tests/orchestrator" # Diretório do código de testes da Lambda
 
   coverage:
