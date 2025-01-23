@@ -79,6 +79,10 @@ jobs:
         with:
           python-version: ${{ needs.load-variables.outputs.lambda-runtime }}
 
+      - name: Ensure Global Coverage Installation
+        run: |
+          pip install coverage coverage-badge
+
       - name: Install Dependencies for All Test Directories
         run: |
           test_lambdas=$(echo '${{ needs.load-variables.outputs.test-lambdas }}' | jq -c '.[]')
