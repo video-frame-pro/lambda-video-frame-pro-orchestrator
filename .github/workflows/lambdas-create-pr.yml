@@ -6,8 +6,15 @@ on:
       - develop
 
 jobs:
-  terraform-validate:
+  load-variables:
     runs-on: ubuntu-latest
+
+    outputs:
+      run-tests: ${{ steps.load-vars.outputs.test-run-toogle }}
+      terraform-directory: ${{ steps.load-vars.outputs.terraform-directory }}
+      lambda-runtime: ${{ steps.load-vars.outputs.lambda-runtime }}
+      test-source: ${{ steps.load-vars.outputs.test-source }}
+      coverage-fail-under: ${{ steps.load-vars.outputs.coverage-fail-under }}
 
     steps:
       # Checkout do repositório
@@ -16,10 +23,19 @@ jobs:
 
       # Carregar variáveis compartilhadas
       - name: Load shared variables
-        id: vars
+        id: load-vars
         uses: mrlocofy/read-yaml-action@v1.1
         with:
           yamlFile: .github/workflows/variables-lambda.yml
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    needs: load-variables
+
+    steps:
+      # Checkout do repositório
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
       # Configurar o Terraform
       - name: Set up Terraform
@@ -28,17 +44,17 @@ jobs:
       # Inicializar o Terraform
       - name: Terraform Init
         run: terraform init
-        working-directory: ${{ steps.vars.outputs.terraform.directory }}
+        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
 
       # Validar o Terraform
       - name: Terraform Validate
         run: terraform validate
-        working-directory: ${{ steps.vars.outputs.terraform.directory }}
+        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
 
   run-tests:
     runs-on: ubuntu-latest
     needs: terraform-validate
-    if: ${{ fromJson(steps.vars.outputs.test.run-toogle) == true }}
+    if: ${{ needs.load-variables.outputs.run-tests == 'true' }}
 
     steps:
       # Checkout do repositório
@@ -49,19 +65,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ steps.vars.outputs.lambda.runtime }}
+          python-version: ${{ needs.load-variables.outputs.lambda-runtime }}
 
       # Instalar dependências de teste
       - name: Install test dependencies
         run: |
-          pip install -r ${{ fromJson(steps.vars.outputs.test.lambdas)[0].source }}/requirements.txt
+          pip install -r ${{ needs.load-variables.outputs.test-source }}/requirements.txt
           pip install coverage coverage-badge
 
       # Executar testes com cobertura
       - name: Run tests with coverage
         run: |
-          coverage run -m unittest discover -s ${{ fromJson(steps.vars.outputs.test.lambdas)[0].source }}
-          coverage report -m --fail-under=${{ steps.vars.outputs.test.coverage.fail_under }}
+          coverage run -m unittest discover -s ${{ needs.load-variables.outputs.test-source }}
+          coverage report -m --fail-under=${{ needs.load-variables.outputs.coverage-fail-under }}
           coverage html
           coverage-badge -o coverage.svg -f
 
@@ -112,13 +128,13 @@ jobs:
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
         env:
-          token: ${{ steps.vars.outputs.github_env.github_token.pat }}
+          token: ${{ secrets.PAT }}
 
       # Criar ou atualizar Pull Request para main
       - name: Create or Update Pull Request to Main
         uses: actions/github-script@v6
         with:
-          github-token: ${{ steps.vars.outputs.github_env.github_token.pat }}
+          github-token: ${{ secrets.PAT }}
           script: |
             const { data: existingPullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
