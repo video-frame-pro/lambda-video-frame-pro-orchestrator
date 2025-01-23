@@ -66,7 +66,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install -r ${{ needs.load-variables.outputs.test-source }}/requirements.txt
+          pip install -r ./${{ needs.load-variables.outputs.test-source }}/requirements.txt
           pip install coverage coverage-badge
 
       - name: Run tests with coverage
