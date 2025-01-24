@@ -1,58 +1,16 @@
-name: Lambda Deploy Workflow
+name: Terraform Deploy
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'infra/**'
-      - '.github/config/variables-lambda.yml'
-      - '.github/workflows/lambdas-deploy.yml'
+
+env:
+  LAMBDAS: '[{"name": "orchestrator", "source": "./src/orchestrator", "zip": "../src/orchestrator/orchestrator.zip"}]'
 
 jobs:
-  load-variables:
+  terraform:
     runs-on: ubuntu-latest
-
-    outputs:
-      github-env-aws-region: ${{ steps.load-vars.outputs.github-env-aws-region }}
-      github-env-aws-access-key: ${{ steps.set-secrets.outputs.github-env-aws-access-key }}
-      github-env-aws-secret-key: ${{ steps.set-secrets.outputs.github-env-aws-secret-key }}
-      terraform-directory: ${{ steps.load-vars.outputs.terraform-directory }}
-      lambda-runtime: ${{ steps.load-vars.outputs.lambda-runtime }}
-      lambdas: ${{ steps.load-vars.outputs.lambdas }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Load variables from YAML with yq
-        id: load-vars
-        run: |
-          echo "::set-output name=github-env-aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
-          echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
-          echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
-          echo "::set-output name=lambdas::$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)"
-
-      - name: Set AWS Secrets as Outputs
-        id: set-secrets
-        run: |
-          echo "::set-output name=github-env-aws-access-key::${{ secrets.AWS_ACCESS_KEY_ID }}"
-          echo "::set-output name=github-env-aws-secret-key::${{ secrets.AWS_ACCESS_KEY_SECRET }}"
-
-      - name: Print All Outputs
-        run: |
-          echo "GitHub AWS Region: ${{ steps.load-vars.outputs.github-env-aws-region }}"
-          echo "GitHub AWS Access Key: ${{ steps.load-vars.outputs.github-env-aws-access-key }}"
-          echo "GitHub AWS Secret Key: ${{ steps.load-vars.outputs.github-env-aws-secret-key }}"
-          echo "Terraform Directory: ${{ steps.load-vars.outputs.terraform-directory }}"
-          echo "Lambda Runtime: ${{ steps.load-vars.outputs.lambda-runtime }}"
-          echo "Lambdas Config: ${{ steps.load-vars.outputs.lambdas }}"
-
-  terraform-validate:
-    runs-on: ubuntu-latest
-    needs: load-variables
 
     steps:
       - name: Checkout repository
@@ -61,64 +19,85 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
 
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
-
-      - name: Terraform Validate
-        run: terraform validate
-        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
-
-  package-lambdas:
-    runs-on: ubuntu-latest
-    needs: terraform-validate
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Package Lambdas
+      - name: Install Dependencies for All Lambda Directories
         run: |
-          lambdas=$(echo '${{ needs.load-variables.outputs.lambdas }}' | jq -c '.[]')
-          for lambda in $lambdas; do
-            name=$(echo $lambda | jq -r '.name')
-            source=$(echo $lambda | jq -r '.source')
-            zip=$(echo $lambda | jq -r '.zip')
-            echo "Packaging Lambda: $name"
-          
-            # Instalar dependências apenas se o arquivo requirements.txt existir
-            if [ -f "$source/requirements.txt" ]; then
+          find src -name 'requirements.txt' -exec sh -c '
+            for req_file; do
+              echo "Installing dependencies for: $req_file"
               python3 -m venv venv
               source venv/bin/activate
-              pip install -r "$source/requirements.txt"
+              pip install -r "$req_file"
               deactivate
-            else
-              echo "No requirements.txt found for $name in $source"
-            fi
+            done
+          ' sh {} +
+
+      # Passo para empacotar todas as Lambdas dinamicamente
+      - name: Create ZIP files for Lambdas
+        run: |
+          echo "Processing Lambdas configuration..."
+          echo "$LAMBDAS" | jq '.[]' # Apenas para debug
+          LAMBDAS=$(echo "$LAMBDAS" | jq -c '.[]')
+          for lambda in $LAMBDAS; do
+            name=$(echo $lambda | jq -r '.name')
+            source=$(echo $lambda | jq -r '.source')
+            zip_path=$(echo $lambda | jq -r '.zip')
           
-            # Criar o pacote ZIP
-            mkdir -p "$(dirname $zip)"
-            cp -r "$source/"* "$(dirname $zip)/"
-            cd "$(dirname $zip)"
-            zip -r "$(basename $zip)" .
-            cd ../../
+            echo "Packaging Lambda: $name"
+            echo "Source: $source"
+            echo "Output ZIP: $zip_path"
+          
+            # Criar o diretório do ZIP, se necessário
+            mkdir -p $(dirname "$zip_path")
+          
+            # Copiar os arquivos para o diretório temporário e empacotar
+            cp -r $source/* $(dirname "$zip_path")
+            cd $(dirname "$zip_path")
+            zip -r $(basename "$zip_path") .
+            cd - > /dev/null
+          done
+          
+
+      # Verificar se os arquivos ZIP foram criados
+      - name: Check if ZIP files exist
+        run: |
+          echo "Checking if ZIP files exist for all Lambdas..."
+          echo "$LAMBDAS" | jq '.[]' # Apenas para debug
+          LAMBDAS=$(echo "$LAMBDAS" | jq -c '.[]')
+          for lambda in $LAMBDAS; do
+            zip_path=$(echo $lambda | jq -r '.zip')
+            if [ ! -f "$zip_path" ]; then
+              echo "Lambda ZIP file not found: $zip_path"
+              exit 1
+            else
+              echo "Lambda ZIP file exists: $zip_path"
+            fi
           done
 
-  terraform-deploy:
-    runs-on: ubuntu-latest
-    needs: package-lambdas
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      # Terraform Init
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./infra
 
+      # Terraform Validate
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./infra
+
+      # Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-          aws-secret-access-key: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-          aws-region: ${{ needs.load-variables.outputs.github-env-aws-region }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
+      # Terraform Refresh
+      - name: Terraform Refresh
+        run: terraform refresh -input=false
+        working-directory: ./infra
+
+      # Terraform Apply
       - name: Terraform Apply
         run: terraform apply -auto-approve
-        working-directory: ${{ needs.load-variables.outputs.terraform-directory }}
+        working-directory: ./infra

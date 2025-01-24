@@ -78,12 +78,14 @@ jobs:
 
   sync-develop-to-main:
     runs-on: ubuntu-latest
+    needs: run-tests  # Só cria o PR se os testes passarem
+    if: success()  # Executa apenas se os jobs anteriores forem bem-sucedidos
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Sync develop to main
+      - name: Fetch and Checkout Branches
         run: |
           git fetch origin
           git checkout develop
@@ -96,11 +98,13 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
+        env:
+          token: ${{ secrets.PAT }}
 
       - name: Create or Update Pull Request to Main
         uses: actions/github-script@v6
         with:
-          github-token: $GITHUB_PAT_TOKEN
+          github-token: ${{ secrets.PAT }}
           script: |
             const { data: existingPullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
@@ -131,3 +135,4 @@ jobs:
                 draft: false
               });
               console.log(`Created pull request: ${pullRequest.html_url}`);
+            }
