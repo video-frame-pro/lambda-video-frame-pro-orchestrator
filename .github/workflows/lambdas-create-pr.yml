@@ -31,6 +31,11 @@ jobs:
             fi
           done < .github/config/variables-lambda.env
 
+      - name: Print Loaded Variables
+        run: |
+          echo "Loaded Variables:"
+          cat $GITHUB_ENV
+
   check-variables:
     runs-on: ubuntu-latest
     needs: load-variables
@@ -80,7 +85,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          echo "Installing dependencies for all test directories..."
+          echo "Processing test lambdas configuration..."
           test_lambdas=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
           for test_lambda in $test_lambdas; do
             name=$(echo $test_lambda | jq -r '.name')
@@ -115,7 +120,7 @@ jobs:
   sync-develop-to-main:
     runs-on: ubuntu-latest
     needs: run-tests
-    if: success()  # Executa apenas se os jobs anteriores forem bem-sucedidos
+    if: success()
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
