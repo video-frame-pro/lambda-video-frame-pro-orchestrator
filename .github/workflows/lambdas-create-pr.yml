@@ -102,9 +102,9 @@ jobs:
           echo "Coverage Fail Under: $COVERAGE_FAIL_UNDER"
         env:
           GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          PAT: ${{ secrets.PAT }}
           TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
           LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
           LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
@@ -117,12 +117,11 @@ jobs:
     needs: load-variables
     env:
       GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-      GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-      GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-      GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      PAT: ${{ secrets.PAT }}
       TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
       LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-      LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
       TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
       TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
       COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
@@ -151,9 +150,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       PAT: ${{ secrets.PAT }}
       GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-      TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
       LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-      LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
       TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
       TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
       COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
@@ -235,12 +232,6 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       PAT: ${{ secrets.PAT }}
       GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-      TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
-      LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-      LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
-      TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
-      TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
-      COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
 
     steps:
       - name: Checkout repository
