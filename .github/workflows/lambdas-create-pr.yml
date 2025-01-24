@@ -39,12 +39,12 @@ jobs:
           echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
           echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
 
-          # Processar `lambdas` como JSON
-          lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)
+          # Processar `lambdas` como JSON e remover quebras de linha
+          lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml | tr -d '\n')
           echo "::set-output name=lambdas::$lambdas"
 
-          # Processar `test-lambdas` como JSON
-          test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml)
+          # Processar `test-lambdas` como JSON e remover quebras de linha
+          test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml | tr -d '\n')
           echo "::set-output name=test-lambdas::$test_lambdas"
 
           # Outros parâmetros
@@ -66,19 +66,9 @@ jobs:
       - name: Validate JSON Outputs
         run: |
           echo "Lambdas Config JSON:"
-          if [ -n "${{ steps.load-vars.outputs.lambdas }}" ]; then
-            echo '${{ steps.load-vars.outputs.lambdas }}' | jq .
-          else
-            echo "No data found for Lambdas Config JSON."
-          fi
-
+          echo '${{ steps.load-vars.outputs.lambdas }}' | jq .
           echo "Test Lambdas Config JSON:"
-          if [ -n "${{ steps.load-vars.outputs.test-lambdas }}" ]; then
-            echo '${{ steps.load-vars.outputs.test-lambdas }}' | jq .
-          else
-            echo "No data found for Test Lambdas Config JSON."
-          fi
-
+          echo '${{ steps.load-vars.outputs.test-lambdas }}' | jq .
 
       - name: Print All Outputs
         run: |
