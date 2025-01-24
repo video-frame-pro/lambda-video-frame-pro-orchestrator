@@ -35,51 +35,82 @@ jobs:
       - name: Load variables from YAML with yq
         id: load-vars
         run: |
-          echo "github-env-aws-region=$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
-          echo "terraform-directory=$(yq '.terraform.directory' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
-          echo "lambda-runtime=$(yq '.lambda.runtime' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
-          
-          # Processar lambdas e test-lambdas como JSON
-          echo "lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml | jq -c '.')" >> $GITHUB_ENV
-          echo "test-lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml | jq -c '.')" >> $GITHUB_ENV
-          
-          echo "test-run-toggle=$(yq '.test.run-toogle' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
-          echo "coverage-fail-under=$(yq '.test.coverage.fail_under' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
+          echo "::set-output name=github-env-aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
+          echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
+          echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
+
+          # Processar `lambdas` como JSON e remover quebras de linha
+          lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml | jq -c '.')
+          echo "::set-output name=lambdas::$lambdas"
+
+          # Processar `test-lambdas` como JSON e remover quebras de linha
+          test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml | jq -c '.')
+          echo "::set-output name=test-lambdas::$test_lambdas"
+
+          # Outros parâmetros
+          echo "::set-output name=test-run-toggle::$(yq '.test.run-toogle' .github/config/variables-lambda.yml)"
+          echo "::set-output name=coverage-fail-under::$(yq '.test.coverage.fail_under' .github/config/variables-lambda.yml)"
 
       - name: Set AWS and GitHub Secrets as Outputs
         id: set-secrets
         run: |
-          echo "github-env-aws-access-key=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
-          echo "github-env-aws-secret-key=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
-          echo "github-env-github-token-pat=$PAT" >> $GITHUB_ENV
+          echo "::set-output name=github-env-aws-access-key::$AWS_ACCESS_KEY_ID"
+          echo "::set-output name=github-env-aws-secret-key::$AWS_SECRET_ACCESS_KEY"
+          echo "::set-output name=github-env-github-token-pat::$PAT"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           PAT: ${{ secrets.PAT }}
 
+  check-variables:
+    runs-on: ubuntu-latest
+    needs: load-variables
+
+    steps:
       - name: Validate JSON Outputs
         run: |
+          echo "Checking Lambdas Config JSON..."
+          if [[ -z "$LAMBDAS" ]]; then
+            echo "Error: LAMBDAS variable is empty or not defined."
+            exit 1
+          fi
           echo "Lambdas Config JSON:"
-          echo "$lambdas" | jq .
-          
+          echo "$LAMBDAS" | jq .
+
+          echo "Checking Test Lambdas Config JSON..."
+          if [[ -z "$TEST_LAMBDAS" ]]; then
+            echo "Error: TEST_LAMBDAS variable is empty or not defined."
+            exit 1
+          fi
           echo "Test Lambdas Config JSON:"
-          echo "$test_lambdas" | jq .
+          echo "$TEST_LAMBDAS" | jq .
         env:
-          lambdas: ${{ env.lambdas }}
-          test_lambdas: ${{ env.test-lambdas }}
+          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
+          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
 
       - name: Print All Outputs
         run: |
-          echo "GitHub AWS Region: $github-env-aws-region"
-          echo "GitHub AWS Access Key: $github-env-aws-access-key"
-          echo "GitHub AWS Secret Key: $github-env-aws-secret-key"
-          echo "GitHub PAT Token: $github-env-github-token-pat"
-          echo "Terraform Directory: $terraform-directory"
-          echo "Lambda Runtime: $lambda-runtime"
-          echo "Lambdas Config: $lambdas"
-          echo "Test Run Toggle: $test-run-toggle"
-          echo "Test Lambdas Config: $test-lambdas"
-          echo "Coverage Fail Under: $coverage-fail-under"
+          echo "GitHub AWS Region: $GITHUB_AWS_REGION"
+          echo "GitHub AWS Access Key: $GITHUB_AWS_ACCESS_KEY"
+          echo "GitHub AWS Secret Key: $GITHUB_AWS_SECRET_KEY"
+          echo "GitHub PAT Token: $GITHUB_PAT_TOKEN"
+          echo "Terraform Directory: $TERRAFORM_DIRECTORY"
+          echo "Lambda Runtime: $LAMBDA_RUNTIME"
+          echo "Lambdas Config: $LAMBDAS"
+          echo "Test Run Toggle: $TEST_RUN_TOGGLE"
+          echo "Test Lambdas Config: $TEST_LAMBDAS"
+          echo "Coverage Fail Under: $COVERAGE_FAIL_UNDER"
+        env:
+          GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
+          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
+          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
+          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
+          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
+          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
+          TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
+          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
+          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -116,7 +147,7 @@ jobs:
       - name: Install Dependencies for All Test Directories
         run: |
           echo "Processing test lambdas configuration:"
-          echo "Raw test_lambda variable:"
+          echo "Raw $test_lambdas variable:"
           echo "$test_lambdas"
           
           # Validar se a variável não está vazia
