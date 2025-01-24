@@ -19,17 +19,17 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v1
 
-      - name: Install Dependencies for All Lambda Directories
+      - name: Install Python Dependencies for All Lambda Directories
         run: |
-          find src -name 'requirements.txt' -exec sh -c '
-            for req_file; do
-              echo "Installing dependencies for: $req_file"
-              python3 -m venv venv
-              source venv/bin/activate
-              pip install -r "$req_file"
-              deactivate
-            done
-          ' sh {} +
+          echo "Installing dependencies for all Lambda directories with venv..."
+          find src -name 'requirements.txt' -exec bash -c '
+            dir=$(dirname "{}")
+            echo "Processing directory: $dir"
+            python3 -m venv "$dir/venv"
+            source "$dir/venv/bin/activate"
+            pip install -r "{}"
+            deactivate
+          ' \;
 
       # Passo para empacotar todas as Lambdas dinamicamente
       - name: Create ZIP files for Lambdas
