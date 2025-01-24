@@ -124,14 +124,16 @@ jobs:
         uses: hashicorp/setup-terraform@v1
 
       - name: Terraform Init
-        run: terraform init
-        working-directory: $TERRAFORM_DIRECTORY
+        run: |
+          cd $TERRAFORM_DIRECTORY
+          terraform init
         env:
           TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
 
       - name: Terraform Validate
-        run: terraform validate
-        working-directory: $TERRAFORM_DIRECTORY
+        run: |
+          cd $TERRAFORM_DIRECTORY
+          terraform validate
         env:
           TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
 
