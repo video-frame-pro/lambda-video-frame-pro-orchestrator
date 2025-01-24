@@ -61,7 +61,34 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           PAT: ${{ secrets.PAT }}
+  check-variables:
+    runs-on: ubuntu-latest
+    needs: load-variables
 
+    steps:
+      - name: Validate Loaded Variables
+        run: |
+          echo "Validating loaded variables..."
+          vars=("GITHUB_AWS_REGION" "GITHUB_AWS_ACCESS_KEY" "GITHUB_AWS_SECRET_KEY" "GITHUB_PAT_TOKEN" "TERRAFORM_DIRECTORY" "LAMBDA_RUNTIME" "LAMBDAS" "TEST_RUN_TOGGLE" "TEST_LAMBDAS" "COVERAGE_FAIL_UNDER")
+          for var in "${vars[@]}"; do
+            if [[ -z "${{ needs.load-variables.outputs[$var] }}" ]]; then
+              echo "Error: $var is empty or not defined."
+              exit 1
+            else
+              echo "$var: ${{ needs.load-variables.outputs[$var] }}"
+            fi
+          done
+        env:
+          GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
+          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
+          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
+          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
+          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
+          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
+          TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
+          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
+          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
   terraform-validate:
     runs-on: ubuntu-latest
     needs: load-variables
@@ -115,7 +142,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: $LAMBDA_RUNTIME
+          python-version: needs.load-variables.outputs.lambda-runtime
 
       - name: Install Dependencies for All Test Directories
         run: |
