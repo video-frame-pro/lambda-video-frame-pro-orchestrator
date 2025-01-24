@@ -16,12 +16,12 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
+      github-env-aws-region: ${{ steps.load-vars.outputs.github-env-aws-region }}
+      github-env-aws-access-key: ${{ steps.load-vars.outputs.github-env-aws-access-key }}
+      github-env-aws-secret-key: ${{ steps.load-vars.outputs.github-env-aws-secret-key }}
       terraform-directory: ${{ steps.load-vars.outputs.terraform-directory }}
       lambda-runtime: ${{ steps.load-vars.outputs.lambda-runtime }}
       lambdas: ${{ steps.load-vars.outputs.lambdas }}
-      aws-region: ${{ steps.load-vars.outputs.aws-region }}
-      aws-access-key: ${{ steps.load-vars.outputs.aws-access-key }}
-      aws-secret-key: ${{ steps.load-vars.outputs.aws-secret-key }}
 
     steps:
       - name: Checkout repository
@@ -30,12 +30,12 @@ jobs:
       - name: Load variables from YAML with yq
         id: load-vars
         run: |
+          echo "::set-output name=github-env-aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
+          echo "::set-output name=github-env-aws-access-key::$(yq '.github_env.aws.access_key' .github/config/variables-lambda.yml)"
+          echo "::set-output name=github-env-aws-secret-key::$(yq '.github_env.aws.secret_key' .github/config/variables-lambda.yml)"
           echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
           echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
           echo "::set-output name=lambdas::$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)"
-          echo "::set-output name=aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
-          echo "::set-output name=aws-access-key::$(yq '.github_env.aws.access_key' .github/config/variables-lambda.yml)"
-          echo "::set-output name=aws-secret-key::$(yq '.github_env.aws.secret_key' .github/config/variables-lambda.yml)"
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -72,12 +72,18 @@ jobs:
             source=$(echo $lambda | jq -r '.source')
             zip=$(echo $lambda | jq -r '.zip')
             echo "Packaging Lambda: $name"
+          
+            # Instalar dependências apenas se o arquivo requirements.txt existir
             if [ -f "$source/requirements.txt" ]; then
               python3 -m venv venv
               source venv/bin/activate
               pip install -r "$source/requirements.txt"
               deactivate
+            else
+              echo "No requirements.txt found for $name in $source"
             fi
+          
+            # Criar o pacote ZIP
             mkdir -p "$(dirname $zip)"
             cp -r "$source/"* "$(dirname $zip)/"
             cd "$(dirname $zip)"
@@ -96,9 +102,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ needs.load-variables.outputs.aws-access-key }}
-          aws-secret-access-key: ${{ needs.load-variables.outputs.aws-secret-key }}
-          aws-region: ${{ needs.load-variables.outputs.aws-region }}
+          aws-access-key-id: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
+          aws-secret-access-key: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
+          aws-region: ${{ needs.load-variables.outputs.github-env-aws-region }}
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
