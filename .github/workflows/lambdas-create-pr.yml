@@ -40,11 +40,11 @@ jobs:
           echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
 
           # Processar `lambdas` como JSON e remover quebras de linha
-          lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml | tr -d '\n')
+          lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml | jq -c '.')
           echo "::set-output name=lambdas::$lambdas"
 
           # Processar `test-lambdas` como JSON e remover quebras de linha
-          test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml | tr -d '\n')
+          test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml | jq -c '.')
           echo "::set-output name=test-lambdas::$test_lambdas"
 
           # Outros parâmetros
