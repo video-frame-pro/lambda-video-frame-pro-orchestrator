@@ -1,0 +1,23 @@
+# Variáveis dinâmicas para Lambdas
+
+github_env:
+  aws:
+    region: "us-east-1" # Região da AWS
+
+terraform:
+  directory: "./infra" # Diretório onde o Terraform está localizado.
+
+lambda:
+  runtime: "python3.12" # Runtime padrão para a Lambda
+  lambdas:
+    - name: "orchestrator" # Nome da Lambda principal
+      source: "./src/orchestrator" # Diretório do código-fonte da Lambda
+      zip: "lambda/orchestrator/orchestrator_lambda_function.zip" # Caminho do arquivo ZIP gerado
+
+test:
+  run-toogle: true # Executar testes? true/false
+  lambdas:
+    - name: "orchestrator_test" # Nome da Lambda principal
+      source: "./tests/orchestrator" # Diretório do código de testes da Lambda
+  coverage:
+    fail_under: 90 # Cobertura mínima para os testes

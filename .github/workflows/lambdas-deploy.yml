@@ -8,7 +8,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'infra/**'
-      - '.github/config/variables-lambda.env'
+      - '.github/config/variables-lambda.yml'
       - '.github/workflows/lambdas-deploy.yml'
 
 jobs:
