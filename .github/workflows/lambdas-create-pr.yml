@@ -122,7 +122,7 @@ jobs:
           echo '${{ needs.load-variables.outputs.test-lambdas }}'
 
           # Validar se a variável não está vazia
-          if [[ -z "${{ needs.load-variables.outputs.test-lambdas }}" ]]; then
+          if [[ -z '${{ needs.load-variables.outputs.test-lambdas }}' ]]; then
             echo "Error: test-lambdas variable is empty or not defined."
             exit 1
           fi
@@ -151,7 +151,6 @@ jobs:
               echo "No requirements.txt found for $name in $source"
             fi
           done
-
 
       - name: Ensure Coverage is Installed
         run: |
