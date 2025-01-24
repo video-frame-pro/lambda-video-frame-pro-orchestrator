@@ -18,7 +18,7 @@ env:
   GITHUB_PAT_TOKEN: ${{ secrets.PAT }}
   GITHUB_AWS_REGION: "us-east-1"
   TERRAFORM_DIRECTORY: "./infra"
-  LAMBDA_RUNTIME: "python3.11"
+  LAMBDA_RUNTIME: "3.12.8"
   LAMBDAS: '[{"name":"orchestrator","source":"./src/orchestrator","zip":"lambda/orchestrator/orchestrator_lambda_function.zip"}]'
   TEST_RUN_TOGGLE: "true"
   TEST_LAMBDAS: '[{"name":"orchestrator_test","source":"./tests/orchestrator"}]'
