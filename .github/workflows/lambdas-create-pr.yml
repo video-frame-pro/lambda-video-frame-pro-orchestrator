@@ -38,10 +38,19 @@ jobs:
           echo "::set-output name=github-env-aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
           echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
           echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
-          echo "::set-output name=lambdas::$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)"
+
+          # Processar `lambdas` como JSON
+          lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)
+          echo "::set-output name=lambdas::$lambdas"
+
+          # Processar `test-lambdas` como JSON
+          test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml)
+          echo "::set-output name=test-lambdas::$test_lambdas"
+
+          # Outros parâmetros
           echo "::set-output name=test-run-toggle::$(yq '.test.run-toogle' .github/config/variables-lambda.yml)"
-          echo "::set-output name=test-lambdas::$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml)"
           echo "::set-output name=coverage-fail-under::$(yq '.test.coverage.fail_under' .github/config/variables-lambda.yml)"
+
 
       - name: Set AWS and GitHub Secrets as Outputs
         id: set-secrets
@@ -57,9 +66,19 @@ jobs:
       - name: Validate JSON Outputs
         run: |
           echo "Lambdas Config JSON:"
-          echo '${{ steps.load-vars.outputs.lambdas }}' | jq .
+          if [ -n "${{ steps.load-vars.outputs.lambdas }}" ]; then
+            echo '${{ steps.load-vars.outputs.lambdas }}' | jq .
+          else
+            echo "No data found for Lambdas Config JSON."
+          fi
+
           echo "Test Lambdas Config JSON:"
-          echo '${{ steps.load-vars.outputs.test-lambdas }}' | jq .
+          if [ -n "${{ steps.load-vars.outputs.test-lambdas }}" ]; then
+            echo '${{ steps.load-vars.outputs.test-lambdas }}' | jq .
+          else
+            echo "No data found for Test Lambdas Config JSON."
+          fi
+
 
       - name: Print All Outputs
         run: |
