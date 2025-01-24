@@ -23,23 +23,22 @@ jobs:
       - name: Load variables from YAML with yq
         id: load-vars
         run: |
+          # Carregar variáveis para $GITHUB_ENV
           echo "AWS_REGION=$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
           echo "TERRAFORM_DIRECTORY=$(yq '.terraform.directory' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
           echo "LAMBDA_RUNTIME=$(yq '.lambda.runtime' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
 
-          # Processar `lambdas` como JSON e armazenar no GITHUB_ENV
+          # Processar e armazenar JSON no GITHUB_ENV
           lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml | jq -c '.')
           echo "LAMBDAS=$lambdas" >> $GITHUB_ENV
 
-          # Processar `test-lambdas` como JSON e armazenar no GITHUB_ENV
           test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml | jq -c '.')
           echo "TEST_LAMBDAS=$test_lambdas" >> $GITHUB_ENV
 
           echo "TEST_RUN_TOGGLE=$(yq '.test.run-toogle' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
           echo "COVERAGE_FAIL_UNDER=$(yq '.test.coverage.fail_under' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
 
-      - name: Set AWS and GitHub Secrets
-        run: |
+          # Secrets
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
           echo "GITHUB_PAT=${{ secrets.PAT }}" >> $GITHUB_ENV
