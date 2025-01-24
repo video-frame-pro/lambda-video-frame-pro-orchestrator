@@ -16,16 +16,17 @@ jobs:
   load-variables:
     runs-on: ubuntu-latest
     outputs:
-      ENV_FILE: ${{ steps.load-env.outputs.env-file }}
+      env-file: ${{ steps.load-env.outputs.env-file }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Load variables from .env file
+      - name: Load variables from .env file with expansion
         id: load-env
-        uses: oNaiPs/export-env-action@v1
+        uses: cardinalby/export-env-action@v1
         with:
-          path: .github/config/variables-lambda.env
+          envFile: '.github/config/variables-lambda.env'
+          expand: 'true'
 
       - name: Print Loaded Variables
         run: |
