@@ -49,27 +49,37 @@ jobs:
     needs: load-variables
 
     steps:
-      - name: Validate JSON Outputs
+      - name: Validate & Print JSON Outputs
         run: |
           echo "Validating JSON Outputs..."
+          
+          if [[ -z "$LAMBDAS" ]]; then
+            echo "Error: LAMBDAS variable is empty or not defined."
+            exit 1
+          fi
           echo "Lambdas Config JSON:"
           echo "$LAMBDAS" | jq .
 
+          if [[ -z "$TEST_LAMBDAS" ]]; then
+            echo "Error: TEST_LAMBDAS variable is empty or not defined."
+            exit 1
+          fi
           echo "Test Lambdas Config JSON:"
           echo "$TEST_LAMBDAS" | jq .
 
-      - name: Print All Outputs
+      - name: Validate & Print All Outputs
         run: |
-          echo "GitHub AWS Region: $AWS_REGION"
-          echo "GitHub AWS Access Key: $AWS_ACCESS_KEY_ID"
-          echo "GitHub AWS Secret Key: $AWS_SECRET_ACCESS_KEY"
-          echo "GitHub PAT Token: $GITHUB_PAT"
-          echo "Terraform Directory: $TERRAFORM_DIRECTORY"
-          echo "Lambda Runtime: $LAMBDA_RUNTIME"
-          echo "Lambdas Config: $LAMBDAS"
-          echo "Test Run Toggle: $TEST_RUN_TOGGLE"
-          echo "Test Lambdas Config: $TEST_LAMBDAS"
-          echo "Coverage Fail Under: $COVERAGE_FAIL_UNDER"
+          echo "Validating and Printing All Outputs..."
+
+          vars=("AWS_REGION" "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "GITHUB_PAT" "TERRAFORM_DIRECTORY" "LAMBDA_RUNTIME" "LAMBDAS" "TEST_RUN_TOGGLE" "TEST_LAMBDAS" "COVERAGE_FAIL_UNDER")
+          for var in "${vars[@]}"; do
+            if [[ -z "${!var}" ]]; then
+              echo "Error: $var is empty or not defined."
+              exit 1
+            else
+              echo "$var: ${!var}"
+            fi
+          done
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -106,7 +116,7 @@ jobs:
       - name: Install Dependencies for All Test Directories
         run: |
           echo "Processing test lambdas configuration..."
-          echo "Raw test lambdas variable:"
+          echo "Raw TEST_LAMBDAS variable:"
           echo "$TEST_LAMBDAS"
 
           if [[ -z "$TEST_LAMBDAS" ]]; then
