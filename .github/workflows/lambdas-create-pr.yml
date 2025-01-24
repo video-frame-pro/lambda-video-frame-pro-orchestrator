@@ -61,8 +61,12 @@ jobs:
         run: |
           echo "Lambdas Config JSON:"
           echo "$lambdas" | jq .
+          
           echo "Test Lambdas Config JSON:"
-          echo "$test-lambdas" | jq .
+          echo "$test_lambdas" | jq .
+        env:
+          lambdas: ${{ env.lambdas }}
+          test_lambdas: ${{ env.test-lambdas }}
 
       - name: Print All Outputs
         run: |
