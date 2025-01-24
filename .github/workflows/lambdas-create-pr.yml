@@ -51,16 +51,15 @@ jobs:
           echo "::set-output name=test-run-toggle::$(yq '.test.run-toogle' .github/config/variables-lambda.yml)"
           echo "::set-output name=coverage-fail-under::$(yq '.test.coverage.fail_under' .github/config/variables-lambda.yml)"
 
-
       - name: Set AWS and GitHub Secrets as Outputs
         id: set-secrets
         run: |
           echo "::set-output name=github-env-aws-access-key::$AWS_ACCESS_KEY_ID"
-          echo "::set-output name=github-env-aws-secret-key::$AWS_ACCESS_KEY_SECRET"
+          echo "::set-output name=github-env-aws-secret-key::$AWS_SECRET_ACCESS_KEY"
           echo "::set-output name=github-env-github-token-pat::$PAT"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           PAT: ${{ secrets.PAT }}
 
       - name: Validate JSON Outputs
