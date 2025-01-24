@@ -116,23 +116,20 @@ jobs:
       - name: Install Dependencies for All Test Directories
         run: |
           echo "Processing test lambdas configuration:"
-          
-          # Exibir variável crua para depuração
-          echo "Raw test_lambdas variable:"
-          echo "$TEST_LAMBDAS"
+          echo "Raw TEST_LAMBDAS variable:"
+          echo "$test_lambdas"
           
           # Validar se a variável não está vazia
-          if [[ -z "$TEST_LAMBDAS" ]]; then
+          if [[ -z "$test_lambdas" ]]; then
             echo "Error: TEST_LAMBDAS variable is empty or not defined."
             exit 1
           fi
           
-          # Exibir como JSON formatado
           echo "Formatted test lambdas as JSON:"
-          echo "$TEST_LAMBDAS" | jq '.[]'
+          echo "$test_lambdas" | jq '.[]'
           
-          # Processar cada lambda de teste
-          test_lambdas=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
+          # Iterar sobre cada lambda
+          test_lambdas=$(echo "$test_lambdas" | jq -c '.[]')
           for test_lambda in $test_lambdas; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
@@ -156,6 +153,7 @@ jobs:
           done
         env:
           TEST_LAMBDAS: ${{ env.test_lambdas }}
+
 
       - name: Run All Tests and Generate Coverage Report
         run: |
