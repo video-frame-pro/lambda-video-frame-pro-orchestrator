@@ -46,19 +46,6 @@ jobs:
           echo "::set-output name=test-lambdas::$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml)"
           echo "::set-output name=coverage-fail-under::$(yq '.test.coverage.fail_under' .github/config/variables-lambda.yml)"
 
-      - name: Print All Outputs
-        run: |
-          echo "GitHub AWS Region: ${{ steps.load-vars.outputs.github-env-aws-region }}"
-          echo "GitHub AWS Access Key: ${{ steps.load-vars.outputs.github-env-aws-access-key }}"
-          echo "GitHub AWS Secret Key: ${{ steps.load-vars.outputs.github-env-aws-secret-key }}"
-          echo "GitHub PAT Token: ${{ steps.load-vars.outputs.github-env-github-token-pat }}"
-          echo "Terraform Directory: ${{ steps.load-vars.outputs.terraform-directory }}"
-          echo "Lambda Runtime: ${{ steps.load-vars.outputs.lambda-runtime }}"
-          echo "Lambdas Config: ${{ steps.load-vars.outputs.lambdas }}"
-          echo "Test Run Toggle: ${{ steps.load-vars.outputs.test-run-toggle }}"
-          echo "Test Lambdas Config: ${{ steps.load-vars.outputs.test-lambdas }}"
-          echo "Coverage Fail Under: ${{ steps.load-vars.outputs.coverage-fail-under }}"
-
   terraform-validate:
     runs-on: ubuntu-latest
     needs: load-variables
@@ -201,4 +188,3 @@ jobs:
                 draft: false
               });
               console.log(`Created pull request: ${pullRequest.html_url}`);
-            }

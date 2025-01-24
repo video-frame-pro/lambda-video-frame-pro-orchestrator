@@ -3,10 +3,10 @@
 github_env:
   aws:
     region: "us-east-1" # Região da AWS
-    access_key: ${{ secrets.AWS_ACCESS_KEY_ID }} # Chave de acesso AWS
-    secret_key: ${{ secrets.AWS_ACCESS_KEY_SECRET }} # Chave secreta AWS
+    access_key: "${{ secrets.AWS_ACCESS_KEY_ID }}" # Chave de acesso AWS
+    secret_key: "${{ secrets.AWS_ACCESS_KEY_SECRET }}" # Chave secreta AWS
   github_token:
-    pat: ${{ secrets.PAT }} # Personal Access Token para sincronização de branches
+    pat: "${{ secrets.PAT }}" # Personal Access Token para sincronização de branches
 
 terraform:
   directory: "./infra" # Diretório onde o Terraform está localizado.
