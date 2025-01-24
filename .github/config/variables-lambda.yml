@@ -19,7 +19,7 @@ lambda:
       zip: "lambda/orchestrator/orchestrator_lambda_function.zip" # Caminho do arquivo ZIP gerado
 
 test:
-  run-toogle: true # Executar testes?
+  run-toogle: true # Executar testes? true/false
   lambdas:
     - name: "orchestrator_test" # Nome da Lambda principal
       source: "./tests/orchestrator" # Diretório do código de testes da Lambda
