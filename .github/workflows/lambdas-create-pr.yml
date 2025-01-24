@@ -1,14 +1,5 @@
 name: Validate Terraform, Run Tests, and Create Pull Request
 
-env:
-  AWS_REGION: us-east-1
-  TERRAFORM_DIRECTORY: ./infra
-  LAMBDA_RUNTIME: python3.12
-  LAMBDAS: '[{"name":"orchestrator","source":"./src/orchestrator","zip":"lambda/orchestrator/orchestrator_lambda_function.zip"}]'
-  TEST_RUN_TOGGLE: true
-  TEST_LAMBDAS: '[{"name":"orchestrator_test","source":"./tests/orchestrator"}]'
-  COVERAGE_FAIL_UNDER: 90
-
 on:
   pull_request:
     branches:
@@ -22,10 +13,30 @@ on:
       - '.github/workflows/lambdas-deploy.yml'
 
 jobs:
-  validate-variables:
+  load-variables:
     runs-on: ubuntu-latest
+    outputs:
+      ENV_FILE: ${{ steps.load-env.outputs.env-file }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Load variables from .env file
+        id: load-env
+        uses: oNaiPs/export-env-action@v1
+        with:
+          path: .github/config/variables-lambda.env
+
       - name: Print Loaded Variables
+        run: |
+          echo "Loaded Variables:"
+          env
+
+  check-variables:
+    runs-on: ubuntu-latest
+    needs: load-variables
+    steps:
+      - name: Validate & Print Variables
         run: |
           echo "Validating and Printing Variables..."
           vars=("AWS_REGION" "TERRAFORM_DIRECTORY" "LAMBDA_RUNTIME" "LAMBDAS" "TEST_RUN_TOGGLE" "TEST_LAMBDAS" "COVERAGE_FAIL_UNDER")
@@ -40,7 +51,7 @@ jobs:
 
   terraform-validate:
     runs-on: ubuntu-latest
-    needs: validate-variables
+    needs: load-variables
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
