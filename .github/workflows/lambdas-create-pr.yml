@@ -85,9 +85,14 @@ jobs:
           for test_lambda in $test_lambdas; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
-            echo "Installing dependencies for test: $name at $source"
           
+            echo "Processing test configuration:"
+            echo "Test Name: $name"
+            echo "Source Path: $source"
+
+            # Verificar e instalar dependências
             if [ -f "$source/requirements.txt" ]; then
+              echo "Installing dependencies from: $source/requirements.txt"
               pip install -r "$source/requirements.txt"
             else
               echo "No requirements.txt found for $name in $source"
