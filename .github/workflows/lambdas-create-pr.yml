@@ -108,29 +108,17 @@ jobs:
           coverage report -m --fail-under=${{ needs.load-variables.outputs.COVERAGE_FAIL_UNDER }}
           coverage html
           coverage-badge -o coverage.svg -f
-
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: tests/reports/htmlcov
-
-      - name: Upload Coverage Badge
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-badge
-          path: tests/reports/coverage.svg
-
   sync-develop-to-main:
     runs-on: ubuntu-latest
     needs: run-tests
-    if: success()
+    if: success()  # Executa apenas se os jobs anteriores forem bem-sucedidos
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Fetch and Checkout Branches
         run: |
+          echo "Fetching and checking out branches..."
           git fetch origin
           git checkout develop
           git pull origin develop
@@ -138,18 +126,20 @@ jobs:
 
       - name: Merge PR to Develop
         run: |
+          echo "Merging PR into develop branch..."
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
         env:
-          GITHUB_PAT: $GITHUB_PAT
+          GITHUB_PAT: ${{ secrets.PAT }}
 
       - name: Create or Update Pull Request to Main
         uses: actions/github-script@v6
         with:
-          github-token: $GITHUB_PAT
+          github-token: ${{ secrets.PAT }}
           script: |
+            console.log("Checking for existing pull requests...");
             const { data: existingPullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -160,6 +150,7 @@ jobs:
 
             if (existingPullRequests.length > 0) {
               const pullRequest = existingPullRequests[0];
+              console.log(`Updating existing pull request: ${pullRequest.html_url}`);
               await github.rest.pulls.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -167,8 +158,8 @@ jobs:
                 title: 'Sync develop to main',
                 body: 'This is an automated PR to sync changes from develop to main.'
               });
-              console.log(`Updated pull request: ${pullRequest.html_url}`);
             } else {
+              console.log("Creating a new pull request...");
               const { data: pullRequest } = await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -179,3 +170,4 @@ jobs:
                 draft: false
               });
               console.log(`Created pull request: ${pullRequest.html_url}`);
+            }
