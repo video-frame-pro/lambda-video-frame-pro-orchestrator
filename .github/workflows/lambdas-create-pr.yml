@@ -39,12 +39,12 @@ jobs:
           echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
           echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
 
-          # Processar `lambdas` como JSON e remover quebras de linha
-          lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml | jq -c '.')
+          # Processar `lambdas` como JSON válido
+          lambdas=$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml | jq -rc '.')
           echo "::set-output name=lambdas::$lambdas"
 
-          # Processar `test-lambdas` como JSON e remover quebras de linha
-          test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml | jq -c '.')
+          # Processar `test-lambdas` como JSON válido
+          test_lambdas=$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml | jq -rc '.')
           echo "::set-output name=test-lambdas::$test_lambdas"
 
           # Outros parâmetros
@@ -117,6 +117,9 @@ jobs:
 
       - name: Install Dependencies for All Test Directories
         run: |
+          echo "Processing test lambdas configuration:"
+          echo '${{ needs.load-variables.outputs.test-lambdas }}' | jq '.[]'
+
           test_lambdas=$(echo '${{ needs.load-variables.outputs.test-lambdas }}' | jq -c '.[]')
           for test_lambda in $test_lambdas; do
             name=$(echo $test_lambda | jq -r '.name')
