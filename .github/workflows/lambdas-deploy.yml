@@ -1,0 +1,103 @@
+name: Terraform Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  LAMBDAS: '[{"name": "orchestrator", "source": "./src/orchestrator", "zip": "../src/orchestrator/orchestrator.zip"}]'
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Install Dependencies for All Lambda Directories
+        run: |
+          find src -name 'requirements.txt' -exec sh -c '
+            for req_file; do
+              echo "Installing dependencies for: $req_file"
+              python3 -m venv venv
+              source venv/bin/activate
+              pip install -r "$req_file"
+              deactivate
+            done
+          ' sh {} +
+
+      # Passo para empacotar todas as Lambdas dinamicamente
+      - name: Create ZIP files for Lambdas
+        run: |
+          echo "Processing Lambdas configuration..."
+          echo "$LAMBDAS" | jq '.[]' # Apenas para debug
+          LAMBDAS=$(echo "$LAMBDAS" | jq -c '.[]')
+          for lambda in $LAMBDAS; do
+            name=$(echo $lambda | jq -r '.name')
+            source=$(echo $lambda | jq -r '.source')
+            zip_path=$(echo $lambda | jq -r '.zip')
+          
+            echo "Packaging Lambda: $name"
+            echo "Source: $source"
+            echo "Output ZIP: $zip_path"
+          
+            # Criar o diretório do ZIP, se necessário
+            mkdir -p $(dirname "$zip_path")
+          
+            # Copiar os arquivos para o diretório temporário e empacotar
+            cp -r $source/* $(dirname "$zip_path")
+            cd $(dirname "$zip_path")
+            zip -r $(basename "$zip_path") .
+            cd - > /dev/null
+          done
+          
+
+      # Verificar se os arquivos ZIP foram criados
+      - name: Check if ZIP files exist
+        run: |
+          echo "Checking if ZIP files exist for all Lambdas..."
+          echo "$LAMBDAS" | jq '.[]' # Apenas para debug
+          LAMBDAS=$(echo "$LAMBDAS" | jq -c '.[]')
+          for lambda in $LAMBDAS; do
+            zip_path=$(echo $lambda | jq -r '.zip')
+            if [ ! -f "$zip_path" ]; then
+              echo "Lambda ZIP file not found: $zip_path"
+              exit 1
+            else
+              echo "Lambda ZIP file exists: $zip_path"
+            fi
+          done
+
+
+      # Terraform Init
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./infra
+
+      # Terraform Validate
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./infra
+
+      # Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Terraform Refresh
+      - name: Terraform Refresh
+        run: terraform refresh -input=false
+        working-directory: ./infra
+
+      # Terraform Apply
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ./infra
