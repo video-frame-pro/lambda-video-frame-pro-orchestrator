@@ -127,10 +127,16 @@ jobs:
           done
           pip install coverage coverage-badge
 
+      - name: Debug Test Directory
+        run: |
+          echo "Listing tests directory:"
+          ls -R ./tests
+
+
       - name: Run All Tests and Generate Coverage Report
         run: |
           coverage run -m unittest discover -s tests
-          coverage report -m --fail-under=90
+          coverage report -m --fail-under=$COVERAGE_FAIL_UNDER
           coverage html
           coverage-badge -o coverage.svg -f
 
