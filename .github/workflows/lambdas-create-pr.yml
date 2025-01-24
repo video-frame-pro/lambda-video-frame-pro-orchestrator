@@ -51,6 +51,8 @@ jobs:
         run: |
           echo "AWS Region: $GITHUB_AWS_REGION"
           echo "AWS Access Key: $AWS_ACCESS_KEY_ID"
+          echo "AWS Secret Access Key: $AWS_SECRET_ACCESS_KEY"
+          echo "GitHub PAT Token: $GITHUB_PAT_TOKEN"
           echo "Terraform Directory: $TERRAFORM_DIRECTORY"
           echo "Lambda Runtime: $LAMBDA_RUNTIME"
           echo "Lambdas Config: $LAMBDAS"
@@ -70,11 +72,13 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: $TERRAFORM_DIRECTORY
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: $TERRAFORM_DIRECTORY
+        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+
 
   run-tests:
     runs-on: ubuntu-latest
