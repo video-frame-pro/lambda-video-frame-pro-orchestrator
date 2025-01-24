@@ -20,10 +20,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Load variables from YAML with yq
-        id: load-vars
+      - name: Load variables from YAML
+        id: export-vars
         run: |
-          echo "Loading variables into $GITHUB_ENV..."
+          echo "Exporting variables from YAML to $GITHUB_ENV..."
 
           # AWS and Terraform variables
           echo "AWS_REGION=$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)" >> $GITHUB_ENV
@@ -74,7 +74,7 @@ jobs:
         run: |
           echo "Validating and Printing All Outputs..."
 
-          vars=("AWS_REGION" "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "GITHUB_PAT" "TERRAFORM_DIRECTORY" "LAMBDA_RUNTIME" "LAMBDAS" "TEST_RUN_TOGGLE" "TEST_LAMBDAS" "COVERAGE_FAIL_UNDER")
+          vars=("AWS_REGION" "TERRAFORM_DIRECTORY" "LAMBDA_RUNTIME" "LAMBDAS" "TEST_LAMBDAS" "TEST_RUN_TOGGLE" "COVERAGE_FAIL_UNDER")
           for var in "${vars[@]}"; do
             if [[ -z "${!var}" ]]; then
               echo "Error: $var is empty or not defined."
@@ -192,40 +192,3 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
-        env:
-          GITHUB_PAT: $GITHUB_PAT
-
-      - name: Create or Update Pull Request to Main
-        uses: actions/github-script@v6
-        with:
-          github-token: $GITHUB_PAT
-          script: |
-            const { data: existingPullRequests } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: 'develop',
-              base: 'main',
-              state: 'open'
-            });
-
-            if (existingPullRequests.length > 0) {
-              const pullRequest = existingPullRequests[0];
-              await github.rest.pulls.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pullRequest.number,
-                title: 'Sync develop to main',
-                body: 'This is an automated PR to sync changes from develop to main.'
-              });
-              console.log(`Updated pull request: ${pullRequest.html_url}`);
-            } else {
-              const { data: pullRequest } = await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: 'Sync develop to main',
-                head: 'develop',
-                base: 'main',
-                body: 'This is an automated PR to sync changes from develop to main.',
-                draft: false
-              });
-              console.log(`Created pull request: ${pullRequest.html_url}`);
