@@ -148,23 +148,25 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ needs.load-variables.outputs.lambda-runtime }}
+          python-version: $LAMBDA_RUNTIME
+        env:
+          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
 
       - name: Install Dependencies for All Test Directories
         run: |
           echo "Processing test lambdas configuration:"
           echo "Raw TEST_LAMBDAS variable:"
-          echo $TEST_LAMBDAS
+          echo "$TEST_LAMBDAS"
           
           # Validar se a variável não está vazia
-          if [[ -z $TEST_LAMBDAS ]]; then
+          if [[ -z "$TEST_LAMBDAS" ]]; then
             echo "Error: TEST_LAMBDAS variable is empty or not defined."
             exit 1
           fi
           
           # Iterar sobre cada lambda
-          TEST_LAMBDAS=$(echo $TEST_LAMBDAS | jq -c '.[]')
-          for test_lambda in $TEST_LAMBDAS; do
+          TEST_LAMBDAS=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
+          for test_lambda in "$TEST_LAMBDAS"; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
           
