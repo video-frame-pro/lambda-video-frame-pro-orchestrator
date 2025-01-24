@@ -125,11 +125,15 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ${{ env.terraform-directory }}
+        working-directory: $TERRAFORM_DIRECTORY
+        env:
+          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: ${{ env.terraform-directory }}
+        working-directory: $TERRAFORM_DIRECTORY
+        env:
+          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
 
   run-tests:
     runs-on: ubuntu-latest
@@ -142,7 +146,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.lambda-runtime }}
+          python-version: ${{ needs.load-variables.outputs.lambda-runtime }}
 
       - name: Install Dependencies for All Test Directories
         run: |
@@ -150,66 +154,28 @@ jobs:
           echo "Raw $TEST_LAMBDAS variable:"
           echo "$TEST_LAMBDAS"
           
-          # Validar se a variável não está vazia
           if [[ -z "$TEST_LAMBDAS" ]]; then
             echo "Error: TEST_LAMBDAS variable is empty or not defined."
             exit 1
           fi
           
-          echo "Formatted test lambdas as JSON:"
-          echo "$TEST_LAMBDAS" | jq '.[]'
-          
-          # Iterar sobre cada lambda
           TEST_LAMBDAS=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
-          for TEST_LAMBDAS in $TEST_LAMBDAS; do
-            name=$(echo $TEST_LAMBDAS | jq -r '.name')
-            source=$(echo $TEST_LAMBDAS | jq -r '.source')
-            echo "Processing test configuration:"
-            echo "Test Name: $name"
-            echo "Source Path: $source"
-          
-            # Validar configuração
-            if [[ -z "$name" || -z "$source" ]]; then
-              echo "Error: Invalid test lambda configuration. Name or source is missing."
-              exit 1
-            fi
-          
-            # Instalar dependências, se o arquivo requirements.txt existir
+          for test_lambda in $TEST_LAMBDAS; do
+            name=$(echo $test_lambda | jq -r '.name')
+            source=$(echo $test_lambda | jq -r '.source')
             if [ -f "$source/requirements.txt" ]; then
-              echo "Installing dependencies from: $source/requirements.txt"
-              pip install -r "$source/requirements.txt" || { echo "Failed to install dependencies for $name"; exit 1; }
-            else
-              echo "No requirements.txt found for $name in $source"
+              pip install -r "$source/requirements.txt"
             fi
           done
         env:
-          TEST_LAMBDAS: ${{ env.test_lambdas }}
-
+          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
 
       - name: Run All Tests and Generate Coverage Report
         run: |
           coverage run -m unittest discover -s tests
-          coverage report -m --fail-under=$coverage-fail-under
-          coverage html
-          coverage-badge -o coverage.svg -f
-
-      - name: Organize Coverage Reports
-        run: |
-          mkdir -p tests/reports
-          mv htmlcov tests/reports/htmlcov
-          mv coverage.svg tests/reports/coverage.svg
-
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: tests/reports/htmlcov
-
-      - name: Upload Coverage Badge
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-badge
-          path: tests/reports/coverage.svg
+          coverage report -m --fail-under=$COVERAGE_FAIL_UNDER
+        env:
+          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
 
   sync-develop-to-main:
     runs-on: ubuntu-latest
@@ -226,15 +192,10 @@ jobs:
           git checkout develop
           git pull origin develop
           git fetch origin ${{ github.event.pull_request.head.ref }}:${{ github.event.pull_request.head.ref }}
-
-      - name: Merge PR to Develop
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
         env:
-          token: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
 
       - name: Create or Update Pull Request to Main
         uses: actions/github-script@v6
@@ -258,9 +219,8 @@ jobs:
                 title: 'Sync develop to main',
                 body: 'This is an automated PR to sync changes from develop to main.'
               });
-              console.log(`Updated pull request: ${pullRequest.html_url}`);
             } else {
-              const { data: pullRequest } = await github.rest.pulls.create({
+              await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: 'Sync develop to main',
