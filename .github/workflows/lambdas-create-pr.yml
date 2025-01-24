@@ -15,8 +15,6 @@ on:
 jobs:
   load-variables:
     runs-on: ubuntu-latest
-    outputs:
-      ENV_FILE: ${{ steps.load-env.outputs.env-file }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
