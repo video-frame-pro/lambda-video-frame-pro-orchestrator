@@ -35,16 +35,16 @@ jobs:
       - name: Load variables from YAML with yq
         id: load-vars
         run: |
-          echo "::set-output name=github-env-aws-region::$(yq 'github_env.aws.region' .github/config/variables-lambda.yml)"
-          echo "::set-output name=github-env-aws-access-key::$(yq 'github_env.aws.access_key' .github/config/variables-lambda.yml)"
-          echo "::set-output name=github-env-aws-secret-key::$(yq 'github_env.aws.secret_key' .github/config/variables-lambda.yml)"
-          echo "::set-output name=github-env-github-token-pat::$(yq 'github_env.github_token.pat' .github/config/variables-lambda.yml)"
-          echo "::set-output name=terraform-directory::$(yq 'terraform.directory' .github/config/variables-lambda.yml)"
-          echo "::set-output name=lambda-runtime::$(yq 'lambda.runtime' .github/config/variables-lambda.yml)"
-          echo "::set-output name=lambdas::$(yq -o=json 'lambda.lambdas' .github/config/variables-lambda.yml)"
-          echo "::set-output name=test-run-toggle::$(yq 'test.run-toogle' .github/config/variables-lambda.yml)"
-          echo "::set-output name=test-lambdas::$(yq -o=json 'test.lambdas' .github/config/variables-lambda.yml)"
-          echo "::set-output name=coverage-fail-under::$(yq 'test.coverage.fail_under' .github/config/variables-lambda.yml)"
+          echo "::set-output name=github-env-aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
+          echo "::set-output name=github-env-aws-access-key::$(yq '.github_env.aws.access_key' .github/config/variables-lambda.yml)"
+          echo "::set-output name=github-env-aws-secret-key::$(yq '.github_env.aws.secret_key' .github/config/variables-lambda.yml)"
+          echo "::set-output name=github-env-github-token-pat::$(yq '.github_env.github_token.pat' .github/config/variables-lambda.yml)"
+          echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
+          echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
+          echo "::set-output name=lambdas::$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)"
+          echo "::set-output name=test-run-toggle::$(yq '.test.run-toogle' .github/config/variables-lambda.yml)"
+          echo "::set-output name=test-lambdas::$(yq -o=json '.test.lambdas' .github/config/variables-lambda.yml)"
+          echo "::set-output name=coverage-fail-under::$(yq '.test.coverage.fail_under' .github/config/variables-lambda.yml)"
 
   terraform-validate:
     runs-on: ubuntu-latest
