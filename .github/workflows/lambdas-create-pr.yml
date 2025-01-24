@@ -62,59 +62,20 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           PAT: ${{ secrets.PAT }}
 
-  check-variables:
-    runs-on: ubuntu-latest
-    needs: load-variables
-
-    steps:
-      - name: Validate JSON Outputs
-        run: |
-          echo "Checking Lambdas Config JSON..."
-          if [[ -z "$LAMBDAS" ]]; then
-            echo "Error: LAMBDAS variable is empty or not defined."
-            exit 1
-          fi
-          echo "Lambdas Config JSON:"
-          echo "$LAMBDAS" | jq .
-
-          echo "Checking Test Lambdas Config JSON..."
-          if [[ -z "$TEST_LAMBDAS" ]]; then
-            echo "Error: TEST_LAMBDAS variable is empty or not defined."
-            exit 1
-          fi
-          echo "Test Lambdas Config JSON:"
-          echo "$TEST_LAMBDAS" | jq .
-        env:
-          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
-          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
-
-      - name: Print All Outputs
-        run: |
-          echo "GitHub AWS Region: $GITHUB_AWS_REGION"
-          echo "GitHub AWS Access Key: $GITHUB_AWS_ACCESS_KEY"
-          echo "GitHub AWS Secret Key: $GITHUB_AWS_SECRET_KEY"
-          echo "GitHub PAT Token: $GITHUB_PAT_TOKEN"
-          echo "Terraform Directory: $TERRAFORM_DIRECTORY"
-          echo "Lambda Runtime: $LAMBDA_RUNTIME"
-          echo "Lambdas Config: $LAMBDAS"
-          echo "Test Run Toggle: $TEST_RUN_TOGGLE"
-          echo "Test Lambdas Config: $TEST_LAMBDAS"
-          echo "Coverage Fail Under: $COVERAGE_FAIL_UNDER"
-        env:
-          GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
-          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
-          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
-          TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
-          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
-          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
-
   terraform-validate:
     runs-on: ubuntu-latest
     needs: load-variables
+    env:
+      GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
+      GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
+      GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
+      GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+      TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
+      LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
+      LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
+      TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
+      TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
+      COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
 
     steps:
       - name: Checkout repository
@@ -124,40 +85,27 @@ jobs:
         uses: hashicorp/setup-terraform@v1
 
       - name: Terraform Init
-        run: |
-          cd $TERRAFORM_DIRECTORY
-          terraform init
-        env:
-          GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
-          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
-          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
-          TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
-          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
-          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
+        run: terraform init
+        working-directory: $TERRAFORM_DIRECTORY
 
       - name: Terraform Validate
-        run: |
-          cd $TERRAFORM_DIRECTORY
-          terraform validate
-        env:
-          GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
-          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
-          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
-          TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
-          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
-          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
+        run: terraform validate
+        working-directory: $TERRAFORM_DIRECTORY
 
   run-tests:
     runs-on: ubuntu-latest
     needs: terraform-validate
+    env:
+      GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
+      GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
+      GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
+      GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+      TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
+      LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
+      LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
+      TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
+      TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
+      COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
 
     steps:
       - name: Checkout repository
@@ -167,82 +115,81 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: $LAMBDA_RUNTIME
-        env:
-          GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
-          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
-          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
-          TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
-          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
-          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
 
       - name: Install Dependencies for All Test Directories
         run: |
           echo "Processing test lambdas configuration:"
-          echo "Raw TEST_LAMBDAS variable:"
+          echo "Raw $TEST_LAMBDAS variable:"
           echo "$TEST_LAMBDAS"
           
-          # Validar se a variável não está vazia
           if [[ -z "$TEST_LAMBDAS" ]]; then
             echo "Error: TEST_LAMBDAS variable is empty or not defined."
             exit 1
           fi
           
-          # Iterar sobre cada lambda
+          echo "Formatted test lambdas as JSON:"
+          echo "$TEST_LAMBDAS" | jq '.[]'
+          
           TEST_LAMBDAS=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
-          for test_lambda in "$TEST_LAMBDAS"; do
+          for test_lambda in $TEST_LAMBDAS; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
+            echo "Processing test configuration:"
+            echo "Test Name: $name"
+            echo "Source Path: $source"
           
-            # Validar configuração
             if [[ -z "$name" || -z "$source" ]]; then
               echo "Error: Invalid test lambda configuration. Name or source is missing."
               exit 1
             fi
           
-            # Instalar dependências, se o arquivo requirements.txt existir
             if [ -f "$source/requirements.txt" ]; then
-              echo "Installing dependencies for $name from $source/requirements.txt"
-              pip install -r "$source/requirements.txt"
+              pip install -r "$source/requirements.txt" || { echo "Failed to install dependencies for $name"; exit 1; }
             else
               echo "No requirements.txt found for $name in $source"
             fi
           done
-        env:
-          GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
-          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
-          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
-          TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
-          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
-          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
 
       - name: Run All Tests and Generate Coverage Report
         run: |
           coverage run -m unittest discover -s tests
           coverage report -m --fail-under=$COVERAGE_FAIL_UNDER
-        env:
-          GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
-          GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
-          GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
-          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
-          TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
-          LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
-          LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
-          TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
-          TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
-          COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
+          coverage html
+          coverage-badge -o coverage.svg -f
+
+      - name: Organize Coverage Reports
+        run: |
+          mkdir -p tests/reports
+          mv htmlcov tests/reports/htmlcov
+          mv coverage.svg tests/reports/coverage.svg
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: tests/reports/htmlcov
+
+      - name: Upload Coverage Badge
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge
+          path: tests/reports/coverage.svg
 
   sync-develop-to-main:
     runs-on: ubuntu-latest
     needs: [terraform-validate, run-tests]
     if: success()
+    env:
+      GITHUB_AWS_REGION: ${{ needs.load-variables.outputs.github-env-aws-region }}
+      GITHUB_AWS_ACCESS_KEY: ${{ needs.load-variables.outputs.github-env-aws-access-key }}
+      GITHUB_AWS_SECRET_KEY: ${{ needs.load-variables.outputs.github-env-aws-secret-key }}
+      GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+      TERRAFORM_DIRECTORY: ${{ needs.load-variables.outputs.terraform-directory }}
+      LAMBDA_RUNTIME: ${{ needs.load-variables.outputs.lambda-runtime }}
+      LAMBDAS: ${{ needs.load-variables.outputs.lambdas }}
+      TEST_RUN_TOGGLE: ${{ needs.load-variables.outputs.test-run-toggle }}
+      TEST_LAMBDAS: ${{ needs.load-variables.outputs.test-lambdas }}
+      COVERAGE_FAIL_UNDER: ${{ needs.load-variables.outputs.coverage-fail-under }}
 
     steps:
       - name: Checkout repository
@@ -254,15 +201,18 @@ jobs:
           git checkout develop
           git pull origin develop
           git fetch origin ${{ github.event.pull_request.head.ref }}:${{ github.event.pull_request.head.ref }}
+
+      - name: Merge PR to Develop
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git merge --no-ff ${{ github.event.pull_request.head.ref }}
           git push origin develop
-        env:
-          GITHUB_PAT_TOKEN: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
 
       - name: Create or Update Pull Request to Main
         uses: actions/github-script@v6
         with:
-          github-token: ${{ needs.load-variables.outputs.github-env-github-token-pat }}
+          github-token: $GITHUB_PAT_TOKEN
           script: |
             const { data: existingPullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
@@ -281,8 +231,9 @@ jobs:
                 title: 'Sync develop to main',
                 body: 'This is an automated PR to sync changes from develop to main.'
               });
+              console.log(`Updated pull request: ${pullRequest.html_url}`);
             } else {
-              await github.rest.pulls.create({
+              const { data: pullRequest } = await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: 'Sync develop to main',
