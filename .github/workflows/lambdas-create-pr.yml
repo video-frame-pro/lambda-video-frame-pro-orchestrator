@@ -1,0 +1,204 @@
+name: Validate Terraform, Run Tests, and Create Pull Request
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'infra/**'
+      - '.github/config/variables-lambda.yml'
+      - '.github/workflows/lambdas-create-pr.yml'
+      - '.github/workflows/lambdas-deploy.yml'
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  GITHUB_PAT_TOKEN: ${{ secrets.PAT }}
+  GITHUB_AWS_REGION: "us-east-1"
+  TERRAFORM_DIRECTORY: "./infra"
+  LAMBDA_RUNTIME: "python3.12"
+  LAMBDAS: '[{"name":"orchestrator","source":"./src/orchestrator","zip":"lambda/orchestrator/orchestrator_lambda_function.zip"}]'
+  TEST_RUN_TOGGLE: "true"
+  TEST_LAMBDAS: '[{"name":"orchestrator_test","source":"./tests/orchestrator"}]'
+  COVERAGE_FAIL_UNDER: "90"
+
+jobs:
+  check-variables:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate JSON Outputs
+        run: |
+          echo "Checking Lambdas Config JSON..."
+          if [[ -z "$LAMBDAS" ]]; then
+            echo "Error: LAMBDAS variable is empty or not defined."
+            exit 1
+          fi
+          echo "Lambdas Config JSON:"
+          echo "$LAMBDAS" | jq .
+
+          echo "Checking Test Lambdas Config JSON..."
+          if [[ -z "$TEST_LAMBDAS" ]]; then
+            echo "Error: TEST_LAMBDAS variable is empty or not defined."
+            exit 1
+          fi
+          echo "Test Lambdas Config JSON:"
+          echo "$TEST_LAMBDAS" | jq .
+
+      - name: Print All Outputs
+        run: |
+          echo "AWS Region: $GITHUB_AWS_REGION"
+          echo "AWS Access Key: $AWS_ACCESS_KEY_ID"
+          echo "Terraform Directory: $TERRAFORM_DIRECTORY"
+          echo "Lambda Runtime: $LAMBDA_RUNTIME"
+          echo "Lambdas Config: $LAMBDAS"
+          echo "Test Run Toggle: $TEST_RUN_TOGGLE"
+          echo "Test Lambdas Config: $TEST_LAMBDAS"
+          echo "Coverage Fail Under: $COVERAGE_FAIL_UNDER"
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: $TERRAFORM_DIRECTORY
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: $TERRAFORM_DIRECTORY
+
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.LAMBDA_RUNTIME }}
+
+      - name: Install Dependencies for All Test Directories
+        run: |
+          echo "Processing test lambdas configuration:"
+          echo "Raw $TEST_LAMBDAS variable:"
+          echo "$TEST_LAMBDAS"
+
+          if [[ -z "$TEST_LAMBDAS" ]]; then
+            echo "Error: TEST_LAMBDAS variable is empty or not defined."
+            exit 1
+          fi
+
+          echo "Formatted test lambdas as JSON:"
+          echo "$TEST_LAMBDAS" | jq '.[]'
+
+          TEST_LAMBDAS=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
+          for test_lambda in $TEST_LAMBDAS; do
+            name=$(echo $test_lambda | jq -r '.name')
+            source=$(echo $test_lambda | jq -r '.source')
+            echo "Processing test configuration:"
+            echo "Test Name: $name"
+            echo "Source Path: $source"
+
+            if [[ -z "$name" || -z "$source" ]]; then
+              echo "Error: Invalid test lambda configuration. Name or source is missing."
+              exit 1
+            fi
+
+            if [ -f "$source/requirements.txt" ]; then
+              pip install -r "$source/requirements.txt" || { echo "Failed to install dependencies for $name"; exit 1; }
+            else
+              echo "No requirements.txt found for $name in $source"
+            fi
+          done
+
+      - name: Run All Tests and Generate Coverage Report
+        run: |
+          coverage run -m unittest discover -s tests
+          coverage report -m --fail-under=$COVERAGE_FAIL_UNDER
+          coverage html
+          coverage-badge -o coverage.svg -f
+
+      - name: Organize Coverage Reports
+        run: |
+          mkdir -p tests/reports
+          mv htmlcov tests/reports/htmlcov
+          mv coverage.svg tests/reports/coverage.svg
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: tests/reports/htmlcov
+
+      - name: Upload Coverage Badge
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge
+          path: tests/reports/coverage.svg
+
+  sync-develop-to-main:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Sync develop to main
+        run: |
+          git fetch origin
+          git checkout develop
+          git pull origin develop
+          git fetch origin ${{ github.event.pull_request.head.ref }}:${{ github.event.pull_request.head.ref }}
+
+      - name: Merge PR to Develop
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git merge --no-ff ${{ github.event.pull_request.head.ref }}
+          git push origin develop
+
+      - name: Create or Update Pull Request to Main
+        uses: actions/github-script@v6
+        with:
+          github-token: $GITHUB_PAT_TOKEN
+          script: |
+            const { data: existingPullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: 'develop',
+              base: 'main',
+              state: 'open'
+            });
+
+            if (existingPullRequests.length > 0) {
+              const pullRequest = existingPullRequests[0];
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullRequest.number,
+                title: 'Sync develop to main',
+                body: 'This is an automated PR to sync changes from develop to main.'
+              });
+              console.log(`Updated pull request: ${pullRequest.html_url}`);
+            } else {
+              const { data: pullRequest } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Sync develop to main',
+                head: 'develop',
+                base: 'main',
+                body: 'This is an automated PR to sync changes from develop to main.',
+                draft: false
+              });
+              console.log(`Created pull request: ${pullRequest.html_url}`);
