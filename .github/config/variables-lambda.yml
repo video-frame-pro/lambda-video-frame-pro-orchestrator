@@ -19,6 +19,5 @@ test:
   lambdas:
     - name: "orchestrator_test" # Nome da Lambda principal
       source: "./tests/orchestrator" # Diretório do código de testes da Lambda
-
   coverage:
     fail_under: 90 # Cobertura mínima para os testes

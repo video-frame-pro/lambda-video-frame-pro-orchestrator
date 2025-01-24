@@ -46,23 +46,33 @@ jobs:
       - name: Set AWS and GitHub Secrets as Outputs
         id: set-secrets
         run: |
-          echo "::set-output name=github-env-aws-access-key::${{ secrets.AWS_ACCESS_KEY_ID }}"
-          echo "::set-output name=github-env-aws-secret-key::${{ secrets.AWS_ACCESS_KEY_SECRET }}"
-          echo "::set-output name=github-env-github-token-pat::${{ secrets.PAT }}"
+          echo "::set-output name=github-env-aws-access-key::$AWS_ACCESS_KEY_ID"
+          echo "::set-output name=github-env-aws-secret-key::$AWS_ACCESS_KEY_SECRET"
+          echo "::set-output name=github-env-github-token-pat::$PAT"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+          PAT: ${{ secrets.PAT }}
+
+      - name: Validate JSON Outputs
+        run: |
+          echo "Lambdas Config JSON:"
+          echo '${{ steps.load-vars.outputs.lambdas }}' | jq .
+          echo "Test Lambdas Config JSON:"
+          echo '${{ steps.load-vars.outputs.test-lambdas }}' | jq .
 
       - name: Print All Outputs
         run: |
           echo "GitHub AWS Region: ${{ steps.load-vars.outputs.github-env-aws-region }}"
-          echo "GitHub AWS Access Key: ${{ steps.load-vars.outputs.github-env-aws-access-key }}"
-          echo "GitHub AWS Secret Key: ${{ steps.load-vars.outputs.github-env-aws-secret-key }}"
-          echo "GitHub PAT Token: ${{ steps.load-vars.outputs.github-env-github-token-pat }}"
+          echo "GitHub AWS Access Key: ${{ steps.set-secrets.outputs.github-env-aws-access-key }}"
+          echo "GitHub AWS Secret Key: ${{ steps.set-secrets.outputs.github-env-aws-secret-key }}"
+          echo "GitHub PAT Token: ${{ steps.set-secrets.outputs.github-env-github-token-pat }}"
           echo "Terraform Directory: ${{ steps.load-vars.outputs.terraform-directory }}"
           echo "Lambda Runtime: ${{ steps.load-vars.outputs.lambda-runtime }}"
           echo "Lambdas Config: ${{ steps.load-vars.outputs.lambdas }}"
           echo "Test Run Toggle: ${{ steps.load-vars.outputs.test-run-toggle }}"
           echo "Test Lambdas Config: ${{ steps.load-vars.outputs.test-lambdas }}"
           echo "Coverage Fail Under: ${{ steps.load-vars.outputs.coverage-fail-under }}"
-
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -103,12 +113,9 @@ jobs:
           for test_lambda in $test_lambdas; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
-          
             echo "Processing test configuration:"
             echo "Test Name: $name"
             echo "Source Path: $source"
-
-            # Verificar e instalar dependências
             if [ -f "$source/requirements.txt" ]; then
               echo "Installing dependencies from: $source/requirements.txt"
               pip install -r "$source/requirements.txt"
@@ -123,7 +130,6 @@ jobs:
 
       - name: Run All Tests and Generate Coverage Report
         run: |
-          # Run tests across all directories specified in `test-lambdas`
           coverage run -m unittest discover -s tests
           coverage report -m --fail-under=${{ needs.load-variables.outputs.coverage-fail-under }}
           coverage html
