@@ -118,9 +118,20 @@ jobs:
       - name: Install Dependencies for All Test Directories
         run: |
           echo "Processing test lambdas configuration:"
+          echo "Raw test-lambdas variable:"
+          echo '${{ needs.load-variables.outputs.test-lambdas }}'
+
+          # Validar se a variável não está vazia
+          if [[ -z "${{ needs.load-variables.outputs.test-lambdas }}" ]]; then
+            echo "Error: test-lambdas variable is empty or not defined."
+            exit 1
+          fi
+
+          echo "Formatted test lambdas as JSON:"
           echo '${{ needs.load-variables.outputs.test-lambdas }}' | jq '.[]'
 
           test_lambdas=$(echo '${{ needs.load-variables.outputs.test-lambdas }}' | jq -c '.[]')
+
           for test_lambda in $test_lambdas; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
@@ -128,13 +139,19 @@ jobs:
             echo "Test Name: $name"
             echo "Source Path: $source"
 
+            if [[ -z "$name" || -z "$source" ]]; then
+              echo "Error: Invalid test lambda configuration. Name or source is missing."
+              exit 1
+            fi
+
             if [ -f "$source/requirements.txt" ]; then
               echo "Installing dependencies from: $source/requirements.txt"
-              pip install -r "$source/requirements.txt" || exit 1
+              pip install -r "$source/requirements.txt" || { echo "Failed to install dependencies for $name"; exit 1; }
             else
               echo "No requirements.txt found for $name in $source"
             fi
           done
+
 
       - name: Ensure Coverage is Installed
         run: |
