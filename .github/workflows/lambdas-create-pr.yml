@@ -16,25 +16,28 @@ jobs:
   load-variables:
     runs-on: ubuntu-latest
     outputs:
-      ENV_FILE: ${{ steps.load-env.outputs.env-file }}
+      AWS_REGION: ${{ steps.export-env.outputs.AWS_REGION }}
+      TERRAFORM_DIRECTORY: ${{ steps.export-env.outputs.TERRAFORM_DIRECTORY }}
+      LAMBDA_RUNTIME: ${{ steps.export-env.outputs.LAMBDA_RUNTIME }}
+      LAMBDAS: ${{ steps.export-env.outputs.LAMBDAS }}
+      TEST_RUN_TOGGLE: ${{ steps.export-env.outputs.TEST_RUN_TOGGLE }}
+      TEST_LAMBDAS: ${{ steps.export-env.outputs.TEST_LAMBDAS }}
+      COVERAGE_FAIL_UNDER: ${{ steps.export-env.outputs.COVERAGE_FAIL_UNDER }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Load variables from .env file
-        id: load-env
+        id: export-env
         run: |
-          echo "Loading variables from .env into $GITHUB_ENV..."
+          echo "Loading variables from .env into outputs..."
           while IFS= read -r line; do
             if [[ "$line" =~ ^[^#]*= ]]; then
-              echo "$line" >> $GITHUB_ENV
+              key=$(echo "$line" | cut -d '=' -f 1)
+              value=$(echo "$line" | cut -d '=' -f 2-)
+              echo "::set-output name=$key::$value"
             fi
           done < .github/config/variables-lambda.env
-
-      - name: Print Loaded Variables
-        run: |
-          echo "Loaded Variables:"
-          cat $GITHUB_ENV
 
   check-variables:
     runs-on: ubuntu-latest
@@ -45,11 +48,12 @@ jobs:
           echo "Validating and Printing Variables..."
           vars=("AWS_REGION" "TERRAFORM_DIRECTORY" "LAMBDA_RUNTIME" "LAMBDAS" "TEST_RUN_TOGGLE" "TEST_LAMBDAS" "COVERAGE_FAIL_UNDER")
           for var in "${vars[@]}"; do
-            if [[ -z "${!var}" ]]; then
+            value="${{ needs.load-variables.outputs.${var} }}"
+            if [[ -z "$value" ]]; then
               echo "Error: $var is empty or not defined."
               exit 1
             else
-              echo "$var: ${!var}"
+              echo "$var: $value"
             fi
           done
 
@@ -65,11 +69,11 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: $TERRAFORM_DIRECTORY
+        working-directory: ${{ needs.load-variables.outputs.TERRAFORM_DIRECTORY }}
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: $TERRAFORM_DIRECTORY
+        working-directory: ${{ needs.load-variables.outputs.TERRAFORM_DIRECTORY }}
 
   run-tests:
     runs-on: ubuntu-latest
@@ -81,12 +85,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: $LAMBDA_RUNTIME
+          python-version: ${{ needs.load-variables.outputs.LAMBDA_RUNTIME }}
 
       - name: Install Dependencies
         run: |
           echo "Processing test lambdas configuration..."
-          test_lambdas=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
+          test_lambdas=$(echo '${{ needs.load-variables.outputs.TEST_LAMBDAS }}' | jq -c '.[]')
           for test_lambda in $test_lambdas; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
@@ -101,7 +105,7 @@ jobs:
       - name: Run Tests and Generate Coverage
         run: |
           coverage run -m unittest discover -s tests
-          coverage report -m --fail-under=$COVERAGE_FAIL_UNDER
+          coverage report -m --fail-under=${{ needs.load-variables.outputs.COVERAGE_FAIL_UNDER }}
           coverage html
           coverage-badge -o coverage.svg -f
 
