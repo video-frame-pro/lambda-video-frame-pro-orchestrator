@@ -116,35 +116,46 @@ jobs:
       - name: Install Dependencies for All Test Directories
         run: |
           echo "Processing test lambdas configuration:"
-          echo "Raw test-lambdas variable:"
-          echo "$test-lambdas"
-
-          if [[ -z "$test-lambdas" ]]; then
-            echo "Error: test-lambdas variable is empty or not defined."
+          
+          # Exibir variável crua para depuração
+          echo "Raw test_lambdas variable:"
+          echo "$TEST_LAMBDAS"
+          
+          # Validar se a variável não está vazia
+          if [[ -z "$TEST_LAMBDAS" ]]; then
+            echo "Error: TEST_LAMBDAS variable is empty or not defined."
             exit 1
           fi
-
-          test_lambdas=$(echo "$test-lambdas" | jq -c '.[]')
-
+          
+          # Exibir como JSON formatado
+          echo "Formatted test lambdas as JSON:"
+          echo "$TEST_LAMBDAS" | jq '.[]'
+          
+          # Processar cada lambda de teste
+          test_lambdas=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
           for test_lambda in $test_lambdas; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
             echo "Processing test configuration:"
             echo "Test Name: $name"
             echo "Source Path: $source"
-
+          
+            # Validar configuração
             if [[ -z "$name" || -z "$source" ]]; then
               echo "Error: Invalid test lambda configuration. Name or source is missing."
               exit 1
             fi
-
+          
+            # Instalar dependências, se o arquivo requirements.txt existir
             if [ -f "$source/requirements.txt" ]; then
               echo "Installing dependencies from: $source/requirements.txt"
-              pip install -r "$source/requirements.txt" || exit 1
+              pip install -r "$source/requirements.txt" || { echo "Failed to install dependencies for $name"; exit 1; }
             else
               echo "No requirements.txt found for $name in $source"
             fi
           done
+        env:
+          TEST_LAMBDAS: ${{ env.test_lambdas }}
 
       - name: Run All Tests and Generate Coverage Report
         run: |
