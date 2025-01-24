@@ -17,8 +17,8 @@ jobs:
 
     outputs:
       github-env-aws-region: ${{ steps.load-vars.outputs.github-env-aws-region }}
-      github-env-aws-access-key: ${{ steps.load-vars.outputs.github-env-aws-access-key }}
-      github-env-aws-secret-key: ${{ steps.load-vars.outputs.github-env-aws-secret-key }}
+      github-env-aws-access-key: ${{ steps.set-secrets.outputs.github-env-aws-access-key }}
+      github-env-aws-secret-key: ${{ steps.set-secrets.outputs.github-env-aws-secret-key }}
       terraform-directory: ${{ steps.load-vars.outputs.terraform-directory }}
       lambda-runtime: ${{ steps.load-vars.outputs.lambda-runtime }}
       lambdas: ${{ steps.load-vars.outputs.lambdas }}
@@ -31,11 +31,15 @@ jobs:
         id: load-vars
         run: |
           echo "::set-output name=github-env-aws-region::$(yq '.github_env.aws.region' .github/config/variables-lambda.yml)"
-          echo "::set-output name=github-env-aws-access-key::$(yq '.github_env.aws.access_key' .github/config/variables-lambda.yml)"
-          echo "::set-output name=github-env-aws-secret-key::$(yq '.github_env.aws.secret_key' .github/config/variables-lambda.yml)"
           echo "::set-output name=terraform-directory::$(yq '.terraform.directory' .github/config/variables-lambda.yml)"
           echo "::set-output name=lambda-runtime::$(yq '.lambda.runtime' .github/config/variables-lambda.yml)"
           echo "::set-output name=lambdas::$(yq -o=json '.lambda.lambdas' .github/config/variables-lambda.yml)"
+
+      - name: Set AWS Secrets as Outputs
+        id: set-secrets
+        run: |
+          echo "::set-output name=github-env-aws-access-key::${{ secrets.AWS_ACCESS_KEY_ID }}"
+          echo "::set-output name=github-env-aws-secret-key::${{ secrets.AWS_ACCESS_KEY_SECRET }}"
 
       - name: Print All Outputs
         run: |
@@ -45,7 +49,6 @@ jobs:
           echo "Terraform Directory: ${{ steps.load-vars.outputs.terraform-directory }}"
           echo "Lambda Runtime: ${{ steps.load-vars.outputs.lambda-runtime }}"
           echo "Lambdas Config: ${{ steps.load-vars.outputs.lambdas }}"
-
 
   terraform-validate:
     runs-on: ubuntu-latest
