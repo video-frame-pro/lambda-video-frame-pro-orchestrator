@@ -153,20 +153,33 @@ jobs:
       - name: Install Dependencies for All Test Directories
         run: |
           echo "Processing test lambdas configuration:"
-          echo "Raw $TEST_LAMBDAS variable:"
+          echo "Raw TEST_LAMBDAS variable:"
           echo "$TEST_LAMBDAS"
           
+          # Validar se a variável não está vazia
           if [[ -z "$TEST_LAMBDAS" ]]; then
             echo "Error: TEST_LAMBDAS variable is empty or not defined."
             exit 1
           fi
           
+          # Iterar sobre cada lambda
           TEST_LAMBDAS=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
           for test_lambda in $TEST_LAMBDAS; do
             name=$(echo $test_lambda | jq -r '.name')
             source=$(echo $test_lambda | jq -r '.source')
+          
+            # Validar configuração
+            if [[ -z "$name" || -z "$source" ]]; then
+              echo "Error: Invalid test lambda configuration. Name or source is missing."
+              exit 1
+            fi
+          
+            # Instalar dependências, se o arquivo requirements.txt existir
             if [ -f "$source/requirements.txt" ]; then
+              echo "Installing dependencies for $name from $source/requirements.txt"
               pip install -r "$source/requirements.txt"
+            else
+              echo "No requirements.txt found for $name in $source"
             fi
           done
         env:
