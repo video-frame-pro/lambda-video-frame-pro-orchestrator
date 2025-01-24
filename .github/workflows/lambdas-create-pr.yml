@@ -12,53 +12,7 @@ on:
       - '.github/workflows/lambdas-create-pr.yml'
       - '.github/workflows/lambdas-deploy.yml'
 
-env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  GITHUB_PAT_TOKEN: ${{ secrets.PAT }}
-  GITHUB_AWS_REGION: "us-east-1"
-  TERRAFORM_DIRECTORY: "./infra"
-  LAMBDA_RUNTIME: "3.12.8"
-  LAMBDAS: '[{"name":"orchestrator","source":"./src/orchestrator","zip":"lambda/orchestrator/orchestrator_lambda_function.zip"}]'
-  TEST_RUN_TOGGLE: "true"
-  TEST_LAMBDAS: '[{"name":"orchestrator_test","source":"./tests/orchestrator"}]'
-  COVERAGE_FAIL_UNDER: "90"
-
 jobs:
-  check-variables:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Validate JSON Outputs
-        run: |
-          echo "Checking Lambdas Config JSON..."
-          if [[ -z "$LAMBDAS" ]]; then
-            echo "Error: LAMBDAS variable is empty or not defined."
-            exit 1
-          fi
-          echo "Lambdas Config JSON:"
-          echo "$LAMBDAS" | jq .
-
-          echo "Checking Test Lambdas Config JSON..."
-          if [[ -z "$TEST_LAMBDAS" ]]; then
-            echo "Error: TEST_LAMBDAS variable is empty or not defined."
-            exit 1
-          fi
-          echo "Test Lambdas Config JSON:"
-          echo "$TEST_LAMBDAS" | jq .
-
-      - name: Print All Outputs
-        run: |
-          echo "AWS Region: $GITHUB_AWS_REGION"
-          echo "AWS Access Key: $AWS_ACCESS_KEY_ID"
-          echo "AWS Secret Access Key: $AWS_SECRET_ACCESS_KEY"
-          echo "GitHub PAT Token: $GITHUB_PAT_TOKEN"
-          echo "Terraform Directory: $TERRAFORM_DIRECTORY"
-          echo "Lambda Runtime: $LAMBDA_RUNTIME"
-          echo "Lambdas Config: $LAMBDAS"
-          echo "Test Run Toggle: $TEST_RUN_TOGGLE"
-          echo "Test Lambdas Config: $TEST_LAMBDAS"
-          echo "Coverage Fail Under: $COVERAGE_FAIL_UNDER"
 
   terraform-validate:
     runs-on: ubuntu-latest
@@ -72,12 +26,12 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+        working-directory: ./infra
 
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: ${{ env.TERRAFORM_DIRECTORY }}
+        working-directory: ./infra
 
 
   run-tests:
@@ -90,47 +44,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.LAMBDA_RUNTIME }}
+          python-version: 3.12.8
 
       - name: Install Dependencies for All Test Directories
         run: |
-          echo "Processing test lambdas configuration:"
-          echo "Raw $TEST_LAMBDAS variable:"
-          echo "$TEST_LAMBDAS"
-
-          if [[ -z "$TEST_LAMBDAS" ]]; then
-            echo "Error: TEST_LAMBDAS variable is empty or not defined."
-            exit 1
-          fi
-
-          echo "Formatted test lambdas as JSON:"
-          echo "$TEST_LAMBDAS" | jq '.[]'
-
-          TEST_LAMBDAS=$(echo "$TEST_LAMBDAS" | jq -c '.[]')
-          for test_lambda in $TEST_LAMBDAS; do
-            name=$(echo $test_lambda | jq -r '.name')
-            source=$(echo $test_lambda | jq -r '.source')
-            echo "Processing test configuration:"
-            echo "Test Name: $name"
-            echo "Source Path: $source"
-
-            if [[ -z "$name" || -z "$source" ]]; then
-              echo "Error: Invalid test lambda configuration. Name or source is missing."
-              exit 1
-            fi
-
-            if [ -f "$source/requirements.txt" ]; then
-              pip install -r "$source/requirements.txt" || { echo "Failed to install dependencies for $name"; exit 1; }
-            else
-              echo "No requirements.txt found for $name in $source"
-            fi
-          done
-          pip install coverage coverage-badge 
+          find tests -name 'requirements.txt' -exec pip install -r {} +
+          pip install coverage coverage-badge
 
       - name: Run All Tests and Generate Coverage Report
         run: |
           coverage run -m unittest discover -s tests -p '*_test.py'
-          coverage report -m --fail-under=$COVERAGE_FAIL_UNDER
+          coverage report -m --fail-under=90
           coverage html
           coverage-badge -o coverage.svg -f
 
