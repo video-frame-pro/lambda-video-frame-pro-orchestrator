@@ -54,8 +54,7 @@ jobs:
             cd $(dirname "$zip_path")
             zip -r $(basename "$zip_path") .
             cd - > /dev/null
-          done
-          
+          done          
 
       # Verificar se os arquivos ZIP foram criados
       - name: Check if ZIP files exist

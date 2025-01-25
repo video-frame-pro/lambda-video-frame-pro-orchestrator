@@ -102,4 +102,8 @@ resource "aws_sfn_state_machine" "step_function" {
   }
 }
 EOF
+
+  depends_on = [
+    aws_iam_role.step_function_role
+  ]
 }
