@@ -138,9 +138,9 @@ resource "aws_iam_policy" "step_function_policy" {
         Action   = ["lambda:InvokeFunction"],
         Effect   = "Allow",
         Resource = [
-          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function/${var.prefix_name}-${var.lambda_upload_name}-lambda",
-          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function/${var.prefix_name}-${var.lambda_processing_name}-lambda",
-          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function/${var.prefix_name}-${var.lambda_send_name}-lambda"
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_upload_name}-lambda",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_processing_name}-lambda",
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda"
         ]
       },
       {
