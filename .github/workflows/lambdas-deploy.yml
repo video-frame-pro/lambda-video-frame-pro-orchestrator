@@ -37,24 +37,27 @@ jobs:
           echo "Processing Lambdas configuration..."
           echo "$LAMBDAS" | jq '.[]' # Apenas para debug
           LAMBDAS=$(echo "$LAMBDAS" | jq -c '.[]')
+        
           for lambda in $LAMBDAS; do
+            # Extraindo os valores do JSON
             name=$(echo $lambda | jq -r '.name')
             source=$(echo $lambda | jq -r '.source')
             zip_path=$(echo $lambda | jq -r '.zip')
-          
+        
             echo "Packaging Lambda: $name"
             echo "Source: $source"
             echo "Output ZIP: $zip_path"
-          
-            # Criar o diretório do ZIP, se necessário
+        
+            # Criar o diretório onde o ZIP será salvo, se necessário
             mkdir -p $(dirname "$zip_path")
-          
-            # Copiar os arquivos para o diretório temporário e empacotar
-            cp -r $source/* $(dirname "$zip_path")
-            cd $(dirname "$zip_path")
-            zip -r $(basename "$zip_path") .
+        
+            # Empacotar diretamente os arquivos do diretório de origem
+            cd "$source"
+            zip -r "$zip_path" .
             cd - > /dev/null
-          done          
+        
+            echo "Lambda $name packaged successfully: $zip_path"
+          done
 
       # Verificar se os arquivos ZIP foram criados
       - name: Check if ZIP files exist
