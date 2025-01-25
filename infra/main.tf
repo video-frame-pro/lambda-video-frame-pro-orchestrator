@@ -21,6 +21,7 @@ resource "aws_lambda_function" "lambda_function" {
   runtime       = var.lambda_runtime
   role          = aws_iam_role.lambda_role.arn
   filename      = var.lambda_zip_path
+  source_code_hash = filebase64sha256(var.lambda_zip_path)
 
   # Variáveis de ambiente para a Lambda
   environment {
@@ -36,6 +37,12 @@ resource "aws_lambda_function" "lambda_function" {
 # Grupo de logs no CloudWatch para a Lambda
 resource "aws_cloudwatch_log_group" "lambda_log_group" {
   name              = "/aws/lambda/${var.prefix_name}-${var.lambda_name}-lambda"
+  retention_in_days = var.log_retention_days
+}
+
+# Grupo de logs no CloudWatch para a Step Function
+resource "aws_cloudwatch_log_group" "step_function_log_group" {
+  name              = "/aws/states/${var.prefix_name}-${var.step_function_name}"
   retention_in_days = var.log_retention_days
 }
 
@@ -135,6 +142,12 @@ resource "aws_iam_policy" "step_function_policy" {
           "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function/${var.prefix_name}-${var.lambda_processing_name}-lambda",
           "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function/${var.prefix_name}-${var.lambda_send_name}-lambda"
         ]
+      },
+      {
+        # Permissões para logs no CloudWatch
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+        Effect   = "Allow",
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*"
       }
     ]
   })
