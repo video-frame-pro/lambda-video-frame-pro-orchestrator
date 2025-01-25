@@ -2,6 +2,7 @@ import boto3
 import logging
 import os
 import uuid
+import json
 from botocore.exceptions import ClientError
 
 # Configuração do logger
@@ -37,6 +38,7 @@ def decode_token(token):
     try:
         response = cognito.get_user(AccessToken=token)
         username = response["Username"]
+        logger.info(f"Decoded token for username: {username}")
         return username
     except ClientError as e:
         logger.error(f"Failed to decode token: {e}")
@@ -62,12 +64,12 @@ def lambda_handler(event, context):
         # Iniciar Step Function
         step_function_response = stepfunctions.start_execution(
             stateMachineArn=STEP_FUNCTION_ARN,
-            input={
+            input=json.dumps({
                 "videoId": video_id,
                 "username": username,
                 "videoLink": video_link,
                 "email": email,
-            },
+            }),
         )
 
         # Obter o ARN da execução da Step Function
