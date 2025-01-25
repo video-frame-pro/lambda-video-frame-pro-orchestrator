@@ -53,7 +53,7 @@ jobs:
             cp -r $source/* lambda/$name/
             cd lambda/$name
             zip -r $zip_file .
-            cd - > ../../
+            cd ../../
           done          
 
       # Verificar se os arquivos ZIP foram criados
