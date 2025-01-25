@@ -36,7 +36,7 @@ resource "aws_sfn_state_machine" "step_function" {
     },
     "Upload": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function/${var.prefix_name}-${var.lambda_upload_name}-lambda",
+      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_upload_name}-lambda",
       "Next": "UpdateStatusToUploadCompleted"
     },
     "UpdateStatusToUploadCompleted": {
@@ -66,7 +66,7 @@ resource "aws_sfn_state_machine" "step_function" {
     },
     "Processing": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function/${var.prefix_name}-${var.lambda_processing_name}-lambda",
+      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_processing_name}-lambda",
       "Next": "UpdateStatusToProcessingCompleted"
     },
     "UpdateStatusToProcessingCompleted": {
@@ -96,7 +96,7 @@ resource "aws_sfn_state_machine" "step_function" {
     },
     "Send": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function/${var.prefix_name}-${var.lambda_send_name}-lambda",
+      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda",
       "End": true
     }
   }
