@@ -129,7 +129,7 @@ resource "aws_iam_policy" "step_function_policy" {
     Statement = [
       {
         # Permissões para atualizar o DynamoDB
-        Action   = ["dynamodb:UpdateItem"],
+        Action   = ["dynamodb:UpdateItem", "dynamodb:GetItem"],
         Effect   = "Allow",
         Resource = "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.dynamo_table_name}"
       },

@@ -4,12 +4,13 @@ resource "aws_sfn_state_machine" "step_function" {
 
   definition = <<EOF
 {
-  "Comment": "Step Function for video processing with validation, retries, and error handling",
+{
+  "Comment": "Step Function for video processing with retries, logs, and consistent error handling",
   "StartAt": "LogInput",
   "States": {
     "LogInput": {
       "Type": "Pass",
-      "ResultPath": "$.log",
+      "ResultPath": "$.LogInputResult",
       "Next": "WaitBeforeDynamoUpdate"
     },
     "WaitBeforeDynamoUpdate": {
@@ -40,6 +41,7 @@ resource "aws_sfn_state_machine" "step_function" {
           }
         }
       },
+      "ResultPath": "$.UpdateStatusToUploadStartedResult",
       "Retry": [
         {
           "ErrorEquals": ["DynamoDB.ProvisionedThroughputExceededException"],
@@ -55,39 +57,12 @@ resource "aws_sfn_state_machine" "step_function" {
           "Next": "LogError"
         }
       ],
-      "Next": "ValidateUpdateToUploadStarted"
-    },
-    "ValidateUpdateToUploadStarted": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::dynamodb:getItem",
-      "Parameters": {
-        "TableName": "${var.dynamo_table_name}",
-        "Key": {
-          "videoId": {
-            "S.$": "$.videoId"
-          },
-          "username": {
-            "S.$": "$.username"
-          }
-        }
-      },
-      "ResultPath": "$.ValidationResult",
-      "Next": "CheckValidationToUploadStarted"
-    },
-    "CheckValidationToUploadStarted": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.ValidationResult.Item.status.S",
-          "StringEquals": "UPLOAD_STARTED",
-          "Next": "Upload"
-        }
-      ],
-      "Default": "LogError"
+      "Next": "Upload"
     },
     "Upload": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_upload_name}-lambda",
+      "ResultPath": "$.UploadResult",
       "Retry": [
         {
           "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
@@ -134,6 +109,7 @@ resource "aws_sfn_state_machine" "step_function" {
           }
         }
       },
+      "ResultPath": "$.UpdateStatusToUploadCompletedResult",
       "Retry": [
         {
           "ErrorEquals": ["DynamoDB.ProvisionedThroughputExceededException"],
@@ -149,11 +125,11 @@ resource "aws_sfn_state_machine" "step_function" {
           "Next": "LogError"
         }
       ],
-      "Next": "ValidateUpdateToUploadCompleted"
+      "Next": "UpdateStatusToProcessingStarted"
     },
-    "ValidateUpdateToUploadCompleted": {
+    "UpdateStatusToProcessingStarted": {
       "Type": "Task",
-      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
       "Parameters": {
         "TableName": "${var.dynamo_table_name}",
         "Key": {
@@ -163,25 +139,54 @@ resource "aws_sfn_state_machine" "step_function" {
           "username": {
             "S.$": "$.username"
           }
+        },
+        "UpdateExpression": "SET #status = :status",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "PROCESSING_STARTED"
+          }
         }
       },
-      "ResultPath": "$.ValidationResult",
-      "Next": "CheckValidationToUploadCompleted"
-    },
-    "CheckValidationToUploadCompleted": {
-      "Type": "Choice",
-      "Choices": [
+      "ResultPath": "$.UpdateStatusToProcessingStartedResult",
+      "Retry": [
         {
-          "Variable": "$.ValidationResult.Item.status.S",
-          "StringEquals": "UPLOAD_COMPLETED",
-          "Next": "Processing"
+          "ErrorEquals": ["DynamoDB.ProvisionedThroughputExceededException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
         }
       ],
-      "Default": "LogError"
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "LogError"
+        }
+      ],
+      "Next": "Processing"
     },
     "Processing": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_processing_name}-lambda",
+      "ResultPath": "$.ProcessingResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "LogError"
+        }
+      ],
       "Next": "UpdateStatusToProcessingCompleted"
     },
     "UpdateStatusToProcessingCompleted": {
@@ -207,11 +212,95 @@ resource "aws_sfn_state_machine" "step_function" {
           }
         }
       },
+      "ResultPath": "$.UpdateStatusToProcessingCompletedResult",
+      "Next": "UpdateStatusToSendStarted"
+    },
+    "UpdateStatusToSendStarted": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${var.dynamo_table_name}",
+        "Key": {
+          "videoId": {
+            "S.$": "$.videoId"
+          },
+          "username": {
+            "S.$": "$.username"
+          }
+        },
+        "UpdateExpression": "SET #status = :status",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "SEND_STARTED"
+          }
+        }
+      },
+      "ResultPath": "$.UpdateStatusToSendStartedResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["DynamoDB.ProvisionedThroughputExceededException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "LogError"
+        }
+      ],
       "Next": "Send"
     },
     "Send": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda",
+      "ResultPath": "$.SendResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "LogError"
+        }
+      ],
+      "Next": "UpdateStatusToSendCompleted"
+    },
+    "UpdateStatusToSendCompleted": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${var.dynamo_table_name}",
+        "Key": {
+          "videoId": {
+            "S.$": "$.videoId"
+          },
+          "username": {
+            "S.$": "$.username"
+          }
+        },
+        "UpdateExpression": "SET #status = :status",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "SEND_COMPLETED"
+          }
+        }
+      },
+      "ResultPath": "$.UpdateStatusToSendCompletedResult",
       "End": true
     },
     "LogError": {
