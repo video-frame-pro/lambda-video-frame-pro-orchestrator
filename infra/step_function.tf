@@ -4,7 +4,6 @@ resource "aws_sfn_state_machine" "step_function" {
 
   definition = <<EOF
 {
-{
   "Comment": "Step Function for video processing with retries, logs, and consistent error handling",
   "StartAt": "LogInput",
   "States": {
@@ -54,7 +53,7 @@ resource "aws_sfn_state_machine" "step_function" {
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "LogError"
+          "Next": "UpdateStatusToFailed"
         }
       ],
       "Next": "Upload"
@@ -81,7 +80,7 @@ resource "aws_sfn_state_machine" "step_function" {
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "LogError"
+          "Next": "UpdateStatusToFailed"
         }
       ],
       "Next": "UpdateStatusToUploadCompleted"
@@ -122,7 +121,7 @@ resource "aws_sfn_state_machine" "step_function" {
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "LogError"
+          "Next": "UpdateStatusToFailed"
         }
       ],
       "Next": "UpdateStatusToProcessingStarted"
@@ -163,7 +162,7 @@ resource "aws_sfn_state_machine" "step_function" {
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "LogError"
+          "Next": "UpdateStatusToFailed"
         }
       ],
       "Next": "Processing"
@@ -184,7 +183,7 @@ resource "aws_sfn_state_machine" "step_function" {
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "LogError"
+          "Next": "UpdateStatusToFailed"
         }
       ],
       "Next": "UpdateStatusToProcessingCompleted"
@@ -213,6 +212,21 @@ resource "aws_sfn_state_machine" "step_function" {
         }
       },
       "ResultPath": "$.UpdateStatusToProcessingCompletedResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["DynamoDB.ProvisionedThroughputExceededException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "UpdateStatusToFailed"
+        }
+      ],
       "Next": "UpdateStatusToSendStarted"
     },
     "UpdateStatusToSendStarted": {
@@ -251,7 +265,7 @@ resource "aws_sfn_state_machine" "step_function" {
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "LogError"
+          "Next": "UpdateStatusToFailed"
         }
       ],
       "Next": "Send"
@@ -272,7 +286,7 @@ resource "aws_sfn_state_machine" "step_function" {
         {
           "ErrorEquals": ["States.ALL"],
           "ResultPath": "$.error",
-          "Next": "LogError"
+          "Next": "UpdateStatusToFailed"
         }
       ],
       "Next": "UpdateStatusToSendCompleted"
@@ -301,7 +315,48 @@ resource "aws_sfn_state_machine" "step_function" {
         }
       },
       "ResultPath": "$.UpdateStatusToSendCompletedResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["DynamoDB.ProvisionedThroughputExceededException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "UpdateStatusToFailed"
+        }
+      ],
       "End": true
+    },
+    "UpdateStatusToFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "${var.dynamo_table_name}",
+        "Key": {
+          "videoId": {
+            "S.$": "$.videoId"
+          },
+          "username": {
+            "S.$": "$.username"
+          }
+        },
+        "UpdateExpression": "SET #status = :status",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "FAILED"
+          }
+        }
+      },
+      "ResultPath": "$.UpdateFailedStatusResult",
+      "Next": "LogError"
     },
     "LogError": {
       "Type": "Pass",
