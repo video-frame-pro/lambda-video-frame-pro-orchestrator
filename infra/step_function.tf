@@ -4,12 +4,17 @@ resource "aws_sfn_state_machine" "step_function" {
 
   definition = <<EOF
 {
-  "Comment": "Step Function for video processing with retries and error handling",
+  "Comment": "Step Function for video processing with validation, retries, and error handling",
   "StartAt": "LogInput",
   "States": {
     "LogInput": {
       "Type": "Pass",
       "ResultPath": "$.log",
+      "Next": "WaitBeforeDynamoUpdate"
+    },
+    "WaitBeforeDynamoUpdate": {
+      "Type": "Wait",
+      "Seconds": 5,
       "Next": "UpdateStatusToUploadStarted"
     },
     "UpdateStatusToUploadStarted": {
@@ -50,7 +55,35 @@ resource "aws_sfn_state_machine" "step_function" {
           "Next": "LogError"
         }
       ],
-      "Next": "Upload"
+      "Next": "ValidateUpdateToUploadStarted"
+    },
+    "ValidateUpdateToUploadStarted": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "${var.dynamo_table_name}",
+        "Key": {
+          "videoId": {
+            "S.$": "$.videoId"
+          },
+          "username": {
+            "S.$": "$.username"
+          }
+        }
+      },
+      "ResultPath": "$.ValidationResult",
+      "Next": "CheckValidationToUploadStarted"
+    },
+    "CheckValidationToUploadStarted": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.ValidationResult.Item.status.S",
+          "StringEquals": "UPLOAD_STARTED",
+          "Next": "Upload"
+        }
+      ],
+      "Default": "LogError"
     },
     "Upload": {
       "Type": "Task",
@@ -59,8 +92,8 @@ resource "aws_sfn_state_machine" "step_function" {
         {
           "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
           "IntervalSeconds": 2,
-          "MaxAttempts": 2,
-          "BackoffRate": 1.5
+          "MaxAttempts": 3,
+          "BackoffRate": 2
         },
         {
           "ErrorEquals": ["Lambda.TooManyRequestsException"],
@@ -101,6 +134,14 @@ resource "aws_sfn_state_machine" "step_function" {
           }
         }
       },
+      "Retry": [
+        {
+          "ErrorEquals": ["DynamoDB.ProvisionedThroughputExceededException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
       "Catch": [
         {
           "ErrorEquals": ["States.ALL"],
@@ -108,18 +149,39 @@ resource "aws_sfn_state_machine" "step_function" {
           "Next": "LogError"
         }
       ],
-      "Next": "Processing"
+      "Next": "ValidateUpdateToUploadCompleted"
+    },
+    "ValidateUpdateToUploadCompleted": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "${var.dynamo_table_name}",
+        "Key": {
+          "videoId": {
+            "S.$": "$.videoId"
+          },
+          "username": {
+            "S.$": "$.username"
+          }
+        }
+      },
+      "ResultPath": "$.ValidationResult",
+      "Next": "CheckValidationToUploadCompleted"
+    },
+    "CheckValidationToUploadCompleted": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.ValidationResult.Item.status.S",
+          "StringEquals": "UPLOAD_COMPLETED",
+          "Next": "Processing"
+        }
+      ],
+      "Default": "LogError"
     },
     "Processing": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_processing_name}-lambda",
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.error",
-          "Next": "LogError"
-        }
-      ],
       "Next": "UpdateStatusToProcessingCompleted"
     },
     "UpdateStatusToProcessingCompleted": {
@@ -145,25 +207,11 @@ resource "aws_sfn_state_machine" "step_function" {
           }
         }
       },
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.error",
-          "Next": "LogError"
-        }
-      ],
       "Next": "Send"
     },
     "Send": {
       "Type": "Task",
       "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda",
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.error",
-          "Next": "LogError"
-        }
-      ],
       "End": true
     },
     "LogError": {
