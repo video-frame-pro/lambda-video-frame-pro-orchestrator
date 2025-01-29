@@ -166,6 +166,32 @@ resource "aws_sfn_state_machine" "step_function" {
     },
     "SuccessState": { "Type": "Succeed" },
     "HandleFailure": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "UpdateStatusToFailed",
+          "States": {
+            "UpdateStatusToFailed": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::dynamodb:updateItem",
+              "Parameters": {
+                "TableName": "${var.dynamo_table_name}",
+                "Key": {
+                  "video_id.$": "$.body.video_id",
+                  "user_name.$": "$.body.user_name"
+                },
+                "UpdateExpression": "SET #status = :status",
+                "ExpressionAttributeNames": { "#status": "status" },
+                "ExpressionAttributeValues": { ":status": { "S": "FAILED" } }
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "FailState"
+    },
+    "FailState": {
       "Type": "Fail",
       "Error": "WorkflowFailed",
       "Cause": "An error occurred during the execution of the Step Function."
