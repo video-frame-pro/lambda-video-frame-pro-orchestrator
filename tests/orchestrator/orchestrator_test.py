@@ -1,8 +1,8 @@
 import json
 import os
+import boto3
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
-
 from botocore.exceptions import ClientError
 
 # Definir variáveis de ambiente mockadas
@@ -10,6 +10,9 @@ os.environ["DYNAMO_TABLE_NAME"] = "mocked_table"
 os.environ["STEP_FUNCTION_ARN"] = "mocked_step_function"
 os.environ["COGNITO_USER_POOL_ID"] = "mocked_cognito_pool"
 os.environ["AWS_REGION"] = "us-east-1"
+
+# Garantir que boto3 use a região definida
+boto3.setup_default_session(region_name=os.environ["AWS_REGION"])
 
 # Importar a Lambda após definir variáveis de ambiente
 from src.orchestrator.orchestrator import lambda_handler, validate_request, normalize_body, decode_token, \
