@@ -13,6 +13,9 @@ os.environ["AWS_REGION"] = "us-east-1"
 os.environ["AWS_ACCESS_KEY_ID"] = "mocked-access-key"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "mocked-secret-key"
 
+# Garantir que boto3 use a região definida
+boto3.setup_default_session(region_name=os.environ["AWS_REGION"])
+
 # Importar a Lambda após definir variáveis de ambiente
 from src.orchestrator.orchestrator import lambda_handler, validate_request, normalize_body, decode_token, \
     start_step_function, save_to_dynamodb
