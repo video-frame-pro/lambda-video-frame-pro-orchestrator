@@ -51,18 +51,7 @@ resource "aws_sfn_state_machine" "step_function" {
       "ResultPath": "$.UploadResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
       "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
-      "Next": "CheckUploadStatus"
-    },
-    "CheckUploadStatus": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.UploadResult.statusCode",
-          "NumericEquals": 200,
-          "Next": "UpdateStatusToProcessingStarted"
-        }
-      ],
-      "Default": "HandleFailure"
+      "Next": "UpdateStatusToProcessingStarted"
     },
     "UpdateStatusToProcessingStarted": {
       "Type": "Task",
@@ -94,18 +83,7 @@ resource "aws_sfn_state_machine" "step_function" {
       "ResultPath": "$.ProcessingResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
       "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
-      "Next": "CheckProcessingStatus"
-    },
-    "CheckProcessingStatus": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.ProcessingResult.statusCode",
-          "NumericEquals": 200,
-          "Next": "UpdateStatusToProcessingCompleted"
-        }
-      ],
-      "Default": "HandleFailure"
+      "Next": "UpdateStatusToProcessingCompleted"
     },
     "UpdateStatusToProcessingCompleted": {
       "Type": "Task",
@@ -135,18 +113,7 @@ resource "aws_sfn_state_machine" "step_function" {
       "ResultPath": "$.SendResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
       "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
-      "Next": "CheckSendStatus"
-    },
-    "CheckSendStatus": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.SendResult.statusCode",
-          "NumericEquals": 200,
-          "Next": "UpdateStatusToSendCompleted"
-        }
-      ],
-      "Default": "HandleFailure"
+      "Next": "UpdateStatusToSendCompleted"
     },
     "UpdateStatusToSendCompleted": {
       "Type": "Task",
@@ -187,12 +154,48 @@ resource "aws_sfn_state_machine" "step_function" {
               "End": true
             }
           }
+        },
+        {
+          "StartAt": "SendFailureNotification",
+          "States": {
+            "SendFailureNotification": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda",
+              "Parameters": {
+                "body": {
+                  "email.$": "$.body.email",
+                  "frame_url": "",
+                  "error": true
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "LogFailure",
+          "States": {
+            "LogFailure": {
+              "Type": "Pass",
+              "Parameters": {
+                "ErrorMessage": "Step Function execution failed",
+                "Details.$": "$.error"
+              },
+              "End": true
+            }
+          }
         }
       ],
       "Next": "FailState"
+    },
+    "FailState": {
+      "Type": "Fail",
+      "Error": "WorkflowFailed",
+      "Cause": "An error occurred during the execution of the Step Function."
     }
   }
 }
+
 EOF
   depends_on = [ aws_iam_role.step_function_role ]
 }
