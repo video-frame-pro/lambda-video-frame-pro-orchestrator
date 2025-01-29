@@ -57,7 +57,7 @@ resource "aws_sfn_state_machine" "step_function" {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.SendResult.statusCode",
+          "Variable": "$.UploadResult.statusCode",
           "NumericEquals": 200,
           "Next": "UpdateStatusToProcessingStarted"
         }
@@ -100,7 +100,7 @@ resource "aws_sfn_state_machine" "step_function" {
       "Type": "Choice",
       "Choices": [
         {
-          "Variable": "$.SendResult.statusCode",
+          "Variable": "$.ProcessingResult.statusCode",
           "NumericEquals": 200,
           "Next": "UpdateStatusToProcessingCompleted"
         }
@@ -228,7 +228,6 @@ resource "aws_sfn_state_machine" "step_function" {
     }
   }
 }
-
 EOF
   depends_on = [ aws_iam_role.step_function_role ]
 }
