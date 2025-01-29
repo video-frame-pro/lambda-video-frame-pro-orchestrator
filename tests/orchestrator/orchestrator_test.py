@@ -79,10 +79,12 @@ class TestLambdaOrchestrator(TestCase):
         mock_cognito = MagicMock()
         mock_cognito.get_user.return_value = {"Username": "mocked_user"}
 
-        # Mock de DynamoDB com erro
+        # Mock de erro no DynamoDB
         mock_dynamodb = MagicMock()
-        mock_dynamodb.put_item.side_effect = Exception("DynamoDB Failure")
-        mock_boto3_resource.return_value.Table.return_value = mock_dynamodb
+        error_response = {"Error": {"Code": "InternalServerError", "Message": "DynamoDB Failure"}}
+        mock_dynamodb.Table.return_value.put_item.side_effect = ClientError(error_response, "PutItem")
+
+        mock_boto3_resource.return_value = mock_dynamodb
 
         def boto3_client_side_effect(service_name):
             if service_name == "cognito-idp":
@@ -94,7 +96,8 @@ class TestLambdaOrchestrator(TestCase):
         response_body = response["body"]
 
         self.assertEqual(response["statusCode"], 500)
-        self.assertIn("An unexpected error occurred. Please try again later.", response_body["message"])
+        self.assertIn("An unexpected error occurred", response_body["message"])
+
 
     def test_lambda_handler_missing_fields(self):
         """
@@ -151,9 +154,10 @@ class TestLambdaOrchestrator(TestCase):
         mock_boto3_resource.return_value.Table.return_value = mock_table
 
         with self.assertRaises(Exception) as context:
-            save_to_dynamodb("video_id", "mocked_user", "video_url", 30, "email", "step_function_execution_id")
+            save_to_dynamodb("mocked_user", "test@example.com", "video_id", "video_url", 30, "step_function_execution_id")
 
         self.assertEqual(str(context.exception), "Database error. Please try again later.")
+
 
     ### 3. Testar Step Function ###
 
@@ -180,4 +184,5 @@ class TestLambdaOrchestrator(TestCase):
         mock_boto3_client.return_value = mock_stepfunctions
 
         with self.assertRaises(ClientError):
-            start_step_function("video_id", "mocked_user", "video_url", 30, "email")
+            start_step_function("mocked_user", "test@example.com", "video_id", "video_url", 30)
+
