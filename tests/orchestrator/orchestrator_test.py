@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 os.environ["DYNAMO_TABLE_NAME"] = "mocked_table"
 os.environ["STEP_FUNCTION_ARN"] = "mocked_step_function"
 os.environ["COGNITO_USER_POOL_ID"] = "mocked_cognito_pool"
+os.environ["AWS_REGION"] = "us-east-1"
 
 # Importar a Lambda após definir variáveis de ambiente
 from src.orchestrator.orchestrator import lambda_handler, validate_request, normalize_body, decode_token, \
