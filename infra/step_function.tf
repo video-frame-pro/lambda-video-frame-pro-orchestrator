@@ -23,11 +23,11 @@ resource "aws_sfn_state_machine" "step_function" {
       "Parameters": {
         "TableName": "${var.dynamo_table_name}",
         "Key": {
-          "videoId": {
-            "S.$": "$.videoId"
+          "video_id": {
+            "S.$": "$.video_id"
           },
-          "username": {
-            "S.$": "$.username"
+          "user_name": {
+            "S.$": "$.user_name"
           }
         },
         "UpdateExpression": "SET #status = :status",
@@ -91,11 +91,11 @@ resource "aws_sfn_state_machine" "step_function" {
       "Parameters": {
         "TableName": "${var.dynamo_table_name}",
         "Key": {
-          "videoId": {
-            "S.$": "$.videoId"
+          "video_id": {
+            "S.$": "$.video_id"
           },
-          "username": {
-            "S.$": "$.username"
+          "user_name": {
+            "S.$": "$.user_name"
           }
         },
         "UpdateExpression": "SET #status = :status",
@@ -132,11 +132,11 @@ resource "aws_sfn_state_machine" "step_function" {
       "Parameters": {
         "TableName": "${var.dynamo_table_name}",
         "Key": {
-          "videoId": {
-            "S.$": "$.videoId"
+          "video_id": {
+            "S.$": "$.video_id"
           },
-          "username": {
-            "S.$": "$.username"
+          "user_name": {
+            "S.$": "$.user_name"
           }
         },
         "UpdateExpression": "SET #status = :status",
@@ -194,11 +194,11 @@ resource "aws_sfn_state_machine" "step_function" {
       "Parameters": {
         "TableName": "${var.dynamo_table_name}",
         "Key": {
-          "videoId": {
-            "S.$": "$.videoId"
+          "video_id": {
+            "S.$": "$.video_id"
           },
-          "username": {
-            "S.$": "$.username"
+          "user_name": {
+            "S.$": "$.user_name"
           }
         },
         "UpdateExpression": "SET #status = :status",
@@ -235,11 +235,11 @@ resource "aws_sfn_state_machine" "step_function" {
       "Parameters": {
         "TableName": "${var.dynamo_table_name}",
         "Key": {
-          "videoId": {
-            "S.$": "$.videoId"
+          "video_id": {
+            "S.$": "$.video_id"
           },
-          "username": {
-            "S.$": "$.username"
+          "user_name": {
+            "S.$": "$.user_name"
           }
         },
         "UpdateExpression": "SET #status = :status",
@@ -297,11 +297,11 @@ resource "aws_sfn_state_machine" "step_function" {
       "Parameters": {
         "TableName": "${var.dynamo_table_name}",
         "Key": {
-          "videoId": {
-            "S.$": "$.videoId"
+          "video_id": {
+            "S.$": "$.video_id"
           },
-          "username": {
-            "S.$": "$.username"
+          "user_name": {
+            "S.$": "$.user_name"
           }
         },
         "UpdateExpression": "SET #status = :status",
@@ -338,11 +338,11 @@ resource "aws_sfn_state_machine" "step_function" {
       "Parameters": {
         "TableName": "${var.dynamo_table_name}",
         "Key": {
-          "videoId": {
-            "S.$": "$.videoId"
+          "video_id": {
+            "S.$": "$.video_id"
           },
-          "username": {
-            "S.$": "$.username"
+          "user_name": {
+            "S.$": "$.user_name"
           }
         },
         "UpdateExpression": "SET #status = :status",
