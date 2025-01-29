@@ -48,7 +48,7 @@ jobs:
 
       - name: Install Dependencies for All Test Directories
         run: |
-          find tests -name 'requirements.txt' -exec pip install -r {} +
+          find tests -name 'requirements.txt' -exec pip install -r {} \;
           pip install coverage coverage-badge
 
       - name: Run All Tests and Generate Coverage Report
