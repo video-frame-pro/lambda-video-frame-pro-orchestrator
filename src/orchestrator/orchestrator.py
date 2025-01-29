@@ -55,7 +55,8 @@ def decode_token(token):
     Decodifica o token JWT usando o Cognito para obter o user_name.
     """
     try:
-        response = cognito.get_user(AccessToken=token)
+        cognito_client = boto3.client("cognito-idp")  # Criar instância dentro da função
+        response = cognito_client.get_user(AccessToken=token)
         user_name = response["Username"]
         logger.info(f"Decoded token for user_name: {user_name}")
         return user_name
@@ -70,18 +71,18 @@ def save_to_dynamodb(video_id, user_name, video_url, email, step_function_execut
     try:
         table = dynamodb.Table(TABLE_NAME)
         item = {
-            "video_id": video_id,
-            "user_name": user_name,
+            "videoId": video_id,
+            "username": user_name,
             "video_url": video_url,
             "email": email,
             "status": "INITIATED",
-            "stepFunctionId": step_function_execution_id,
+            "step_function_id": step_function_execution_id,
         }
         table.put_item(Item=item)
         logger.info(f"Data saved to DynamoDB for video_id: {video_id}")
-    except Exception as e:
+    except ClientError as e:
         logger.error(f"Failed to save data to DynamoDB: {e}")
-        raise
+        raise Exception("Database error. Please try again later.")
 
 def start_step_function(video_id, user_name, video_url, email):
     """
