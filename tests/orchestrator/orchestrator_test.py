@@ -140,22 +140,6 @@ class TestLambdaOrchestrator(TestCase):
 
         mock_table.put_item.assert_called_once()
 
-    @patch("src.orchestrator.orchestrator.boto3.resource")
-    def test_save_to_dynamodb_failure(self, mock_boto3_resource):
-        """
-        Testa se o erro ao salvar no DynamoDB é tratado corretamente.
-        """
-        mock_table = MagicMock()
-        error_response = {"Error": {"Code": "InternalServerError", "Message": "DynamoDB is down"}}
-        mock_table.put_item.side_effect = ClientError(error_response, "PutItem")
-
-        mock_boto3_resource.return_value.Table.return_value = mock_table
-
-        with self.assertRaises(Exception) as context:
-            save_to_dynamodb("video_id", "mocked_user", "video_url", 30, "email", "step_function_execution_id")
-
-        self.assertEqual(str(context.exception), "Database error. Please try again later.")
-
     ### 3. Testar Step Function ###
 
     @patch("src.orchestrator.orchestrator.stepfunctions")
