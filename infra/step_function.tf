@@ -135,7 +135,7 @@ resource "aws_sfn_state_machine" "step_function" {
       "ResultPath": "$.SendResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
       "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
-      "Next": "CheckProcessingStatus"
+      "Next": "CheckSendStatus"
     },
     "CheckSendStatus": {
       "Type": "Choice",
