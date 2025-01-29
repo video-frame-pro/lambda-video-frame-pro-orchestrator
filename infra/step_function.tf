@@ -190,7 +190,7 @@ resource "aws_sfn_state_machine" "step_function" {
           "States": {
             "SendFailureNotification": {
               "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:::invoke",
+              "Resource": "arn:aws:states:::lambda:invoke",
               "Parameters": {
                 "body": {
                   "email.$": "$.body.email",
