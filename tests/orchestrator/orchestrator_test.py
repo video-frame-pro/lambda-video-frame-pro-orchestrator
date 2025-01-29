@@ -10,9 +10,8 @@ os.environ["DYNAMO_TABLE_NAME"] = "mocked_table"
 os.environ["STEP_FUNCTION_ARN"] = "mocked_step_function"
 os.environ["COGNITO_USER_POOL_ID"] = "mocked_cognito_pool"
 os.environ["AWS_REGION"] = "us-east-1"
-
-# Garantir que boto3 use a região definida
-boto3.setup_default_session(region_name=os.environ["AWS_REGION"])
+os.environ["AWS_ACCESS_KEY_ID"] = "mocked-access-key"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "mocked-secret-key"
 
 # Importar a Lambda após definir variáveis de ambiente
 from src.orchestrator.orchestrator import lambda_handler, validate_request, normalize_body, decode_token, \
