@@ -39,13 +39,16 @@ resource "aws_sfn_state_machine" "step_function" {
     },
     "Upload": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_upload_name}-lambda",
+      "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "body": {
-          "user_name.$": "$.body.user_name",
-          "email.$": "$.body.email",
-          "video_id.$": "$.body.video_id",
-          "video_url.$": "$.body.video_url"
+        "FunctionName": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_upload_name}-lambda",
+        "Payload": {
+          "body": {
+            "user_name.$": "$.body.user_name",
+            "email.$": "$.body.email",
+            "video_id.$": "$.body.video_id",
+            "video_url.$": "$.body.video_url"
+          }
         }
       },
       "ResultPath": "$.UploadResult",
@@ -81,13 +84,16 @@ resource "aws_sfn_state_machine" "step_function" {
     },
     "Processing": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_processing_name}-lambda",
+      "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "body": {
-          "user_name.$": "$.body.user_name",
-          "email.$": "$.body.email",
-          "video_id.$": "$.body.video_id",
-          "frame_rate.$": "$.body.frame_rate"
+        "FunctionName": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_processing_name}-lambda",
+        "Payload": {
+          "body": {
+            "user_name.$": "$.body.user_name",
+            "email.$": "$.body.email",
+            "video_id.$": "$.body.video_id",
+            "frame_rate.$": "$.body.frame_rate"
+          }
         }
       },
       "ResultPath": "$.ProcessingResult",
@@ -123,11 +129,14 @@ resource "aws_sfn_state_machine" "step_function" {
     },
     "Send": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda",
+      "Resource": "arn:aws:states:::lambda:invoke",
       "Parameters": {
-        "body": {
-          "email.$": "$.body.email",
-          "frame_url.$": "$.ProcessingResult.body.frame_url"
+        "FunctionName": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda",
+        "Payload": {
+          "body": {
+            "email.$": "$.body.email",
+            "frame_url.$": "$.ProcessingResult.body.frame_url"
+          }
         }
       },
       "ResultPath": "$.SendResult",
@@ -192,9 +201,12 @@ resource "aws_sfn_state_machine" "step_function" {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Parameters": {
-                "body": {
-                  "email.$": "$.body.email",
-                  "error": true
+                "FunctionName": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda",
+                "Payload": {
+                  "body": {
+                    "email.$": "$.body.email",
+                    "error": true
+                  }
                 }
               },
               "End": true
@@ -203,11 +215,6 @@ resource "aws_sfn_state_machine" "step_function" {
         }
       ],
       "Next": "FailState"
-    },
-    "FailState": {
-      "Type": "Fail",
-      "Error": "WorkflowFailed",
-      "Cause": "An error occurred during the execution of the Step Function."
     }
   }
 }
