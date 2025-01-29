@@ -50,7 +50,6 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.UploadResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
       "Next": "CheckUploadStatus"
     },
     "CheckUploadStatus": {
@@ -93,7 +92,6 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.ProcessingResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
       "Next": "CheckProcessingStatus"
     },
     "CheckProcessingStatus": {
@@ -134,7 +132,6 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.SendResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
       "Next": "CheckSendStatus"
     },
     "CheckSendStatus": {
@@ -166,6 +163,48 @@ resource "aws_sfn_state_machine" "step_function" {
     },
     "SuccessState": { "Type": "Succeed" },
     "HandleFailure": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "UpdateStatusToFailed",
+          "States": {
+            "UpdateStatusToFailed": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::dynamodb:updateItem",
+              "Parameters": {
+                "TableName": "${var.dynamo_table_name}",
+                "Key": {
+                  "video_id.$": "$.body.video_id",
+                  "user_name.$": "$.body.user_name"
+                },
+                "UpdateExpression": "SET #status = :status",
+                "ExpressionAttributeNames": { "#status": "status" },
+                "ExpressionAttributeValues": { ":status": { "S": "FAILED" } }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "SendFailureNotification",
+          "States": {
+            "SendFailureNotification": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:::invoke",
+              "Parameters": {
+                "body": {
+                  "email.$": "$.body.email",
+                  "error": true
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "FailState"
+    },
+    "FailState": {
       "Type": "Fail",
       "Error": "WorkflowFailed",
       "Cause": "An error occurred during the execution of the Step Function."
