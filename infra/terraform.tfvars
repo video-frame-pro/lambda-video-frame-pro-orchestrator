@@ -11,7 +11,7 @@ lambda_zip_path = "../lambda/orchestrator/orchestrator.zip" # Caminho para o ZIP
 lambda_runtime  = "python3.12" # Runtime da função Lambda principal
 
 ######### DYNAMO INFOS #################################################
-dynamo_table_name = "video_metadata" # Nome da tabela DynamoDB para armazenar informações
+dynamo_table_name = "video-frame-pro-metadata-table" # Nome da tabela DynamoDB para armazenar informações
 
 ######### LOGS CLOUD WATCH #############################################
 log_retention_days = 7 # Dias para retenção dos logs no CloudWatch

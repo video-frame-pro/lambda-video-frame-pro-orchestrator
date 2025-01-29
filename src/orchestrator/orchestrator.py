@@ -45,7 +45,7 @@ def validate_request(body):
     """
     Valida os campos obrigatórios na requisição.
     """
-    required_fields = ["video_url", "email"]
+    required_fields = ["video_url", "frame_rate", "email"]
     missing_fields = [field for field in required_fields if field not in body]
     if missing_fields:
         raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
@@ -64,17 +64,18 @@ def decode_token(token):
         logger.error(f"Failed to decode token: {e}")
         raise ValueError("Invalid token")
 
-def save_to_dynamodb(video_id, user_name, video_url, email, step_function_execution_id):
+def save_to_dynamodb(user_name, email, video_id, video_url, frame_rate,step_function_execution_id):
     """
     Salva os dados no DynamoDB.
     """
     try:
         table = dynamodb.Table(TABLE_NAME)
         item = {
-            "videoId": video_id,
-            "username": user_name,
-            "video_url": video_url,
+            "user_name": user_name,
             "email": email,
+            "video_id": video_id,
+            "video_url": video_url,
+            "frame_rate": frame_rate,
             "status": "INITIATED",
             "step_function_id": step_function_execution_id,
         }
@@ -84,7 +85,7 @@ def save_to_dynamodb(video_id, user_name, video_url, email, step_function_execut
         logger.error(f"Failed to save data to DynamoDB: {e}")
         raise Exception("Database error. Please try again later.")
 
-def start_step_function(video_id, user_name, video_url, email):
+def start_step_function(user_name, email, video_id, video_url, frame_rate):
     """
     Inicia a execução da Step Function.
     """
@@ -92,10 +93,13 @@ def start_step_function(video_id, user_name, video_url, email):
         step_function_response = stepfunctions.start_execution(
             stateMachineArn=STEP_FUNCTION_ARN,
             input=json.dumps({
-                "user_name": user_name,
-                "email": email,
-                "video_id": video_id,
-                "video_url": video_url
+                "body": {
+                    "user_name": user_name,
+                    "email": email,
+                    "video_id": video_id,
+                    "video_url": video_url,
+                    "frame_rate": frame_rate
+                }
             }),
         )
         step_function_execution_id = step_function_response["executionArn"]
@@ -124,6 +128,12 @@ def lambda_handler(event, context):
         if not token:
             raise ValueError("Authorization token is missing")
 
+        frame_rate = body["frame_rate"]
+
+        if not isinstance(frame_rate, int) or frame_rate <= 0:
+            logger.error("[process_video_frames] Invalid frame rate number.")
+            raise ValueError("Invalid frame rate number, must be an integer greater than 0")
+
         video_url = body["video_url"]
         email = body["email"]
 
@@ -134,8 +144,8 @@ def lambda_handler(event, context):
         video_id = str(uuid.uuid4())
 
         # Iniciar Step Function e salvar no DynamoDB
-        step_function_execution_id = start_step_function(video_id, user_name, video_url, email)
-        save_to_dynamodb(video_id, user_name, video_url, email, step_function_execution_id)
+        step_function_execution_id = start_step_function(user_name, email, video_id, video_url, frame_rate)
+        save_to_dynamodb(user_name, email, video_id, video_url, frame_rate,step_function_execution_id)
 
         # Retornar resposta estruturada
         return create_response(200, data={
@@ -143,7 +153,8 @@ def lambda_handler(event, context):
             "email": email,
             "video_id": video_id,
             "video_url": video_url,
-            "stepFunctionId": step_function_execution_id
+            "frame_rate": frame_rate,
+            "step_function_execution_id": step_function_execution_id
         })
 
     except ValueError as ve:
@@ -153,4 +164,3 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return create_response(500, message="An unexpected error occurred. Please try again later.")
-
