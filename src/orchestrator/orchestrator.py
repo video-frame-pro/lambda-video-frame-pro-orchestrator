@@ -56,7 +56,7 @@ def decode_token(token):
     """
     try:
         response = cognito.get_user(AccessToken=token)
-        user_name = response["user_name"]
+        user_name = response["Username"]
         logger.info(f"Decoded token for user_name: {user_name}")
         return user_name
     except ClientError as e:
