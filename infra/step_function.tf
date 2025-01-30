@@ -50,7 +50,7 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.UploadResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$error", "Next": "HandleFailure" }],
       "Next": "CheckUploadStatus"
     },
     "CheckUploadStatus": {
@@ -93,7 +93,7 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.ProcessingResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$error", "Next": "HandleFailure" }],
       "Next": "CheckProcessingStatus"
     },
     "CheckProcessingStatus": {
@@ -134,7 +134,7 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.SendResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$error", "Next": "HandleFailure" }],
       "Next": "CheckSendStatus"
     },
     "CheckSendStatus": {
@@ -197,7 +197,7 @@ resource "aws_sfn_state_machine" "step_function" {
               "Parameters": {
                 "body": {
                   "email.$": "$.body.email",
-                  "frame_url": "",
+                  "frame_url.$": "",
                   "error": true
                 }
               },
@@ -212,7 +212,7 @@ resource "aws_sfn_state_machine" "step_function" {
               "Type": "Pass",
               "Parameters": {
                 "ErrorMessage": "Step Function execution failed",
-                "Details.$": "$.error"
+                "Details.$": "States.JsonMerge({}, $.error, false)"
               },
               "End": true
             }
