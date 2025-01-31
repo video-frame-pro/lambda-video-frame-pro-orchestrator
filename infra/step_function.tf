@@ -3,7 +3,7 @@ resource "aws_sfn_state_machine" "step_function" {
   role_arn = aws_iam_role.step_function_role.arn
 
   definition = <<EOF
-  {
+{
   "Comment": "Step Function for video processing with retries, logging, and consistent error handling",
   "StartAt": "LogInput",
   "States": {
@@ -50,17 +50,13 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.UploadResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$error_data", "Next": "HandleFailure" }],
       "Next": "CheckUploadStatus"
     },
     "CheckUploadStatus": {
       "Type": "Choice",
       "Choices": [
-        {
-          "Variable": "$.UploadResult.statusCode",
-          "NumericEquals": 200,
-          "Next": "UpdateStatusToProcessingStarted"
-        }
+        { "Variable": "$.UploadResult.statusCode", "NumericEquals": 200, "Next": "UpdateStatusToProcessingStarted" }
       ],
       "Default": "HandleFailure"
     },
@@ -93,17 +89,13 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.ProcessingResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$error", "Next": "HandleFailure" }],
       "Next": "CheckProcessingStatus"
     },
     "CheckProcessingStatus": {
       "Type": "Choice",
       "Choices": [
-        {
-          "Variable": "$.ProcessingResult.statusCode",
-          "NumericEquals": 200,
-          "Next": "UpdateStatusToProcessingCompleted"
-        }
+        { "Variable": "$.ProcessingResult.statusCode", "NumericEquals": 200, "Next": "UpdateStatusToProcessingCompleted" }
       ],
       "Default": "HandleFailure"
     },
@@ -134,17 +126,13 @@ resource "aws_sfn_state_machine" "step_function" {
       },
       "ResultPath": "$.SendResult",
       "Retry": [{ "ErrorEquals": ["States.ALL"], "IntervalSeconds": 2, "MaxAttempts": 3, "BackoffRate": 2 }],
-      "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "HandleFailure" }],
+      "Catch": [{ "ErrorEquals": ["States.ALL"], "ResultPath": "$error", "Next": "HandleFailure" }],
       "Next": "CheckSendStatus"
     },
     "CheckSendStatus": {
       "Type": "Choice",
       "Choices": [
-        {
-          "Variable": "$.SendResult.statusCode",
-          "NumericEquals": 200,
-          "Next": "UpdateStatusToSendCompleted"
-        }
+        { "Variable": "$.SendResult.statusCode", "NumericEquals": 200, "Next": "UpdateStatusToSendCompleted" }
       ],
       "Default": "HandleFailure"
     },
@@ -194,26 +182,7 @@ resource "aws_sfn_state_machine" "step_function" {
             "SendFailureNotification": {
               "Type": "Task",
               "Resource": "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${var.prefix_name}-${var.lambda_send_name}-lambda",
-              "Parameters": {
-                "body": {
-                  "email.$": "$.body.email",
-                  "frame_url": "",
-                  "error": true
-                }
-              },
-              "End": true
-            }
-          }
-        },
-        {
-          "StartAt": "LogFailure",
-          "States": {
-            "LogFailure": {
-              "Type": "Pass",
-              "Parameters": {
-                "ErrorMessage": "Step Function execution failed",
-                "Details.$": "$.error"
-              },
+              "Parameters": { "body": { "email.$": "$.body.email", "frame_url": "", "error": true } },
               "End": true
             }
           }
@@ -221,13 +190,10 @@ resource "aws_sfn_state_machine" "step_function" {
       ],
       "Next": "FailState"
     },
-    "FailState": {
-      "Type": "Fail",
-      "Error": "WorkflowFailed",
-      "Cause": "An error occurred during the execution of the Step Function."
-    }
+    "FailState": { "Type": "Fail", "Error": "WorkflowFailed", "Cause": "An error occurred during the execution of the Step Function." }
   }
 }
+
 EOF
   depends_on = [ aws_iam_role.step_function_role ]
 }
