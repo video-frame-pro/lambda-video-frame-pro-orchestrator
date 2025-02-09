@@ -13,7 +13,7 @@ data "aws_ssm_parameter" "cognito_user_pool_id" {
   name = var.cognito_user_pool_id_ssm
 }
 
-######### FUNÇÃO LAMBDA ###############################################
+######### FUNÇÃO LAMBDA ################################################
 # Função Lambda principal
 resource "aws_lambda_function" "lambda_function" {
   function_name = "${var.prefix_name}-${var.lambda_name}-lambda"
